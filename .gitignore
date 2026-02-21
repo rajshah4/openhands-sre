@@ -18,3 +18,4 @@ conversations/
 
 # Build/test artifacts
 *.egg-info/
+.claude/
