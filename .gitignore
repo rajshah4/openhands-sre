@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual env and local env
+.venv/
+.env
+
+# OS / editor
+.DS_Store
+
+# Runtime artifacts
+flask.log
+nohup.out
+conversations/
+
+# Build/test artifacts
+*.egg-info/

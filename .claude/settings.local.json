@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync:*)",
+      "Bash(uv run python:*)",
+      "Bash(docker --version:*)",
+      "Bash(curl:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker run:*)"
+    ]
+  }
+}

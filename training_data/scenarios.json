@@ -1,0 +1,22 @@
+[
+  {
+    "scenario_id": "stale_lockfile",
+    "error_report": "stale_lockfile: Service returns HTTP 500 immediately after deploy.",
+    "expected_first_checks": ["ls /tmp", "service.lock"]
+  },
+  {
+    "scenario_id": "bad_env_config",
+    "error_report": "bad_env_config: Service healthcheck fails due to missing env configuration.",
+    "expected_first_checks": ["printenv", "REQUIRED_API_KEY"]
+  },
+  {
+    "scenario_id": "readiness_probe_fail",
+    "error_report": "readiness_probe_fail: Service is up but readiness probe fails on startup.",
+    "expected_first_checks": ["/tmp", "ready.flag"]
+  },
+  {
+    "scenario_id": "port_mismatch",
+    "error_report": "port_mismatch: Health endpoint on :5000 fails, but process may listen on another port.",
+    "expected_first_checks": ["ss -lntp", "5001"]
+  }
+]
