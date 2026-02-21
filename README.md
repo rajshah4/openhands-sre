@@ -137,6 +137,31 @@ Real tool execution depends on `openhands-tools` (Terminal/FileEditor), installe
 
 ## Security Controls
 
+
+## Production Verification Gate
+
+Real runs now include a stability verifier gate after agent execution:
+- requires N consecutive HTTP 200 probes
+- bounded by max attempts and probe interval
+- `service_up` is only true when both agent output and verifier pass
+
+Relevant flags on `run_demo.py`:
+- `--verify-consecutive-successes` (default: `2`)
+- `--verify-max-attempts` (default: `6`)
+- `--verify-interval-s` (default: `1.5`)
+
+Example:
+
+```bash
+uv run python run_demo.py \
+  --mode optimized \
+  --strategy-source skills \
+  --scenario stale_lockfile \
+  --verify-consecutive-successes 3 \
+  --verify-max-attempts 8
+```
+
+
 `run_demo.py` exposes:
 - `--max-security-risk {LOW|MEDIUM|HIGH}`
 - `--require-confirmation-for-risk {LOW|MEDIUM|HIGH}`
@@ -145,7 +170,7 @@ Real tool execution depends on `openhands-tools` (Terminal/FileEditor), installe
 ## Easy Real Run Wrapper
 
 ```bash
-uv run python scripts/start_demo.py --mode optimized --scenario stale_lockfile
+uv run python scripts/start_demo.py --mode optimized --scenario stale_lockfile --allow-local-workspace
 ```
 
 Useful flags:
@@ -222,6 +247,27 @@ Positioning:
 3. Add incident text in `run_demo.py` (`SCENARIO_ERRORS`)
 4. Add scenario training example in `training_data/scenarios.json` (optional lane)
 5. Add tests in `tests/`
+
+
+## Structured Trace Logging
+
+Each run is logged as JSONL for offline evaluation and skill improvement.
+
+Default path:
+- `artifacts/runs/trace_log.jsonl`
+
+Override/disable:
+- `--trace-log <path>`
+- `--disable-trace-log`
+- `--run-id <id>`
+
+Rows include run metadata, scenario, skill, steps, risks, and verifier output.
+
+Build scorecards from traces:
+
+```bash
+uv run python scripts/skill_scorecard.py --trace-log artifacts/runs/trace_log.jsonl
+```
 
 ## How to Evolve Toward Continual Learning
 

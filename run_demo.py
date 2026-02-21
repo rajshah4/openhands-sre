@@ -3,10 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
+import time
 from pathlib import Path
+from typing import Any
 
 from openhands_driver import OpenHandsSRE, format_skill_catalog, list_skill_ids, select_skill
 from openhands_driver.runtime_env import ensure_real_call_requirements, load_project_env, runtime_env_status
+from openhands_driver.trace_store import append_jsonl, utc_now_iso
 from optimize import get_best_hint, load_examples
 
 
@@ -96,6 +100,79 @@ def choose_strategy(
     return selected
 
 
+def _probe_http_code(url: str) -> str:
+    proc = subprocess.run(
+        ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", url],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return "000"
+    return (proc.stdout or "000").strip()
+
+
+def verify_stable_endpoint(
+    *,
+    url: str,
+    consecutive_successes: int,
+    max_attempts: int,
+    interval_s: float,
+) -> dict[str, Any]:
+    successes = 0
+    attempts: list[str] = []
+
+    for _ in range(max_attempts):
+        code = _probe_http_code(url)
+        attempts.append(code)
+        if code == "200":
+            successes += 1
+            if successes >= consecutive_successes:
+                return {
+                    "verified": True,
+                    "attempts": attempts,
+                    "consecutive_target": consecutive_successes,
+                }
+        else:
+            successes = 0
+        time.sleep(max(0.1, interval_s))
+
+    return {
+        "verified": False,
+        "attempts": attempts,
+        "consecutive_target": consecutive_successes,
+    }
+
+
+def build_trace_record(
+    *,
+    run_id: str,
+    args: argparse.Namespace,
+    strategy: StrategySelection,
+    result: dict[str, Any],
+    verification: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "timestamp": utc_now_iso(),
+        "run_id": run_id,
+        "mode": args.mode,
+        "scenario": args.scenario,
+        "strategy_source": strategy.strategy_source,
+        "skill_id": strategy.skill_id,
+        "optimizer": args.optimizer,
+        "simulate": bool(args.simulate),
+        "target_url": args.target_url,
+        "target_container": args.target_container,
+        "service_up": bool(result.get("service_up", False)),
+        "step_count": int(result.get("step_count", 999)),
+        "fallback_used": bool(result.get("fallback_used", False)),
+        "max_security_risk_seen": str(result.get("max_security_risk_seen", "UNKNOWN")),
+        "tool_actions": list(result.get("tool_actions", [])),
+        "security_risks": list(result.get("security_risks", [])),
+        "verification": verification,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Skill-Driven SRE Agent demo")
     parser.add_argument("--mode", choices=["baseline", "optimized"], required=True)
@@ -132,6 +209,12 @@ def main() -> None:
     parser.add_argument("--mock", dest="simulate", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--model", default=None)
     parser.add_argument("--env-file", default=None, help="Optional path to .env file")
+    parser.add_argument("--run-id", default=None, help="Optional run id for trace grouping")
+    parser.add_argument("--trace-log", default="artifacts/runs/trace_log.jsonl")
+    parser.add_argument("--disable-trace-log", action="store_true")
+    parser.add_argument("--verify-consecutive-successes", type=int, default=2)
+    parser.add_argument("--verify-max-attempts", type=int, default=6)
+    parser.add_argument("--verify-interval-s", type=float, default=1.5)
     parser.add_argument(
         "--allow-fallback",
         action="store_true",
@@ -155,6 +238,8 @@ def main() -> None:
         help="Auto-approve risky actions when confirmation is required",
     )
     args = parser.parse_args()
+
+    run_id = args.run_id or f"run-{int(time.time())}"
 
     env_path = load_project_env(args.env_file)
     status = runtime_env_status()
@@ -239,7 +324,29 @@ def main() -> None:
         target_container=args.target_container,
     )
 
+    verification: dict[str, Any] | None = None
+    if not args.simulate:
+        verification = verify_stable_endpoint(
+            url=args.target_url,
+            consecutive_successes=max(1, args.verify_consecutive_successes),
+            max_attempts=max(1, args.verify_max_attempts),
+            interval_s=max(0.1, args.verify_interval_s),
+        )
+        result["service_up"] = bool(result.get("service_up", False)) and bool(verification["verified"])
+
+    if not args.disable_trace_log:
+        row = build_trace_record(
+            run_id=run_id,
+            args=args,
+            strategy=strategy,
+            result=result,
+            verification=verification,
+        )
+        trace_path = append_jsonl(args.trace_log, row)
+        print(f"[trace] appended -> {trace_path}")
+
     print("\n=== Demo Result ===")
+    print("run_id:", run_id)
     print("mode:", args.mode)
     print("strategy_source:", strategy.strategy_source)
     print("optimizer:", args.optimizer)
@@ -253,6 +360,8 @@ def main() -> None:
     print("strategy_hint:", strategy.strategy_hint)
     print("service_up:", result.get("service_up"))
     print("step_count:", result.get("step_count"))
+    if verification is not None:
+        print("verification:", verification)
     print("fallback_used:", result.get("fallback_used", False))
     if result.get("fallback_reason"):
         print("fallback_reason:", result.get("fallback_reason"))
