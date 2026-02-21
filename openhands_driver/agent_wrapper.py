@@ -71,8 +71,8 @@ class OpenHandsSRE:
         self.real_max_retries = max(0, real_max_retries)
         self.real_run_timeout_s = max(30, real_run_timeout_s)
 
-    def _build_system_message(self, strategy_hint: str, target_url: str) -> str:
-        return (
+    def _build_system_message(self, strategy_hint: str, target_url: str, preferred_skill: str | None = None) -> str:
+        base = (
             "You are an SRE incident-response agent. "
             "Use Terminal and FileEditor tools to diagnose and recover service health quickly. "
             "You must execute real commands, not just provide a plan. "
@@ -80,6 +80,9 @@ class OpenHandsSRE:
             "Always verify with curl after making a change. "
             f"Runbook hint: {strategy_hint}"
         )
+        if not preferred_skill:
+            return base
+        return f"{base} Preferred skill to apply first: {preferred_skill}."
 
     def _scenario_from_error(self, error_report: str) -> str:
         report = error_report.lower()
@@ -234,15 +237,24 @@ class OpenHandsSRE:
         target_url: str = "http://127.0.0.1:15000",
         target_container: str | None = None,
         trace_key: str | None = None,
+        preferred_skill: str | None = None,
     ) -> OpenHandsResult:
-        from openhands.sdk import Agent, Conversation, LLM, Tool  # type: ignore
+        from openhands.sdk import Agent, AgentContext, Conversation, LLM, Tool, load_project_skills  # type: ignore
         from openhands.tools import FileEditorTool, TerminalTool, register_default_tools  # type: ignore
 
         register_default_tools(enable_browser=False)
 
         workspace = self._build_workspace()
 
-        system_message = self._build_system_message(strategy_hint, target_url)
+        skills = load_project_skills(Path.cwd())
+        if preferred_skill:
+            preferred = next((sk for sk in skills if sk.name == preferred_skill), None)
+            if preferred is not None:
+                ordered = [preferred] + [sk for sk in skills if sk.name != preferred_skill]
+                skills = ordered
+        agent_context = AgentContext(skills=skills)
+
+        system_message = self._build_system_message(strategy_hint, target_url, preferred_skill=preferred_skill)
         target_context = (
             f"Target service endpoint: {target_url}. "
             if not target_container
@@ -273,6 +285,7 @@ class OpenHandsSRE:
             tools=tools,
             include_default_tools=["FinishTool", "ThinkTool"],
             system_prompt_kwargs={"cli_mode": True},
+            agent_context=agent_context,
         )
 
         events: list[str] = []
@@ -376,6 +389,7 @@ class OpenHandsSRE:
         target_url: str = "http://127.0.0.1:15000",
         target_container: str | None = None,
         trace_key: str | None = None,
+        preferred_skill: str | None = None,
     ) -> OpenHandsResult:
         attempt = 0
         last_exc: Exception | None = None
@@ -395,6 +409,7 @@ class OpenHandsSRE:
                     target_url=target_url,
                     target_container=target_container,
                     trace_key=trace_key,
+                    preferred_skill=preferred_skill,
                 )
             except Exception as exc:
                 last_exc = exc
@@ -418,6 +433,7 @@ class OpenHandsSRE:
         target_url: str = "http://127.0.0.1:15000",
         target_container: str | None = None,
         trace_key: str | None = None,
+        preferred_skill: str | None = None,
     ) -> dict[str, Any]:
         resolved_scenario = scenario_id or self._scenario_from_error(error_report)
         if dry_run:
@@ -437,6 +453,7 @@ class OpenHandsSRE:
                 target_url=target_url,
                 target_container=target_container,
                 trace_key=trace_key,
+                preferred_skill=preferred_skill,
             ).to_dict()
             result["fallback_used"] = False
             return result

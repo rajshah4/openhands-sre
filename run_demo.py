@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from pathlib import Path
 
-from openhands_driver import OpenHandsSRE
+from openhands_driver import OpenHandsSRE, format_skill_catalog, list_skill_ids, select_skill
 from openhands_driver.runtime_env import ensure_real_call_requirements, load_project_env, runtime_env_status
 from optimize import get_best_hint, load_examples
 
@@ -23,13 +24,15 @@ OPTIMIZED_HINT = (
 )
 
 
-def choose_hint(
-    mode: str,
-    optimizer: str,
-    runtime_image: str,
-) -> tuple[str, float | None]:
-    if mode == "baseline":
-        return BASELINE_HINT, None
+class StrategySelection(argparse.Namespace):
+    strategy_source: str
+    strategy_hint: str
+    optimizer_score: float | None
+    skill_id: str | None
+    skill_path: str | None
+
+
+def choose_optimizer_hint(optimizer: str, runtime_image: str) -> tuple[str, float | None]:
     if optimizer == "manual":
         return OPTIMIZED_HINT, None
 
@@ -43,14 +46,70 @@ def choose_hint(
     return hint, score
 
 
+def choose_strategy(
+    *,
+    mode: str,
+    strategy_source: str,
+    optimizer: str,
+    runtime_image: str,
+    scenario_id: str,
+    error_report: str,
+    skills_root: str,
+    skill_id: str | None,
+) -> StrategySelection:
+    selected = StrategySelection()
+    selected.optimizer_score = None
+    selected.skill_id = None
+    selected.skill_path = None
+
+    if mode == "baseline":
+        selected.strategy_source = "baseline"
+        selected.strategy_hint = BASELINE_HINT
+        return selected
+
+    if strategy_source == "manual":
+        selected.strategy_source = "manual"
+        selected.strategy_hint = OPTIMIZED_HINT
+        return selected
+
+    if strategy_source == "optimizer":
+        selected.strategy_source = f"optimizer:{optimizer}"
+        selected.strategy_hint, selected.optimizer_score = choose_optimizer_hint(optimizer, runtime_image)
+        return selected
+
+    if skill_id:
+        skill_path = Path(skills_root) / skill_id / "SKILL.md"
+        if not skill_path.exists():
+            available = format_skill_catalog(list_skill_ids(skills_root))
+            raise FileNotFoundError(f"Unknown skill_id={skill_id}. Available skills: {available}")
+        selected.strategy_source = "skills"
+        selected.strategy_hint = f"Follow the {skill_id} skill runbook and verify with curl after each fix."
+        selected.skill_id = skill_id
+        selected.skill_path = str(skill_path)
+        return selected
+
+    skill = select_skill(scenario_id=scenario_id, error_report=error_report, skills_root=skills_root)
+    selected.strategy_source = "skills"
+    selected.strategy_hint = skill.strategy_hint
+    selected.skill_id = skill.skill_id
+    selected.skill_path = str(skill.skill_path)
+    return selected
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Self-Optimizing SRE Agent demo")
+    parser = argparse.ArgumentParser(description="Skill-Driven SRE Agent demo")
     parser.add_argument("--mode", choices=["baseline", "optimized"], required=True)
+    parser.add_argument(
+        "--strategy-source",
+        choices=["auto", "skills", "optimizer", "manual"],
+        default="auto",
+        help="How optimized mode picks the troubleshooting strategy (auto keeps backward compatibility)",
+    )
     parser.add_argument(
         "--optimizer",
         choices=["manual", "gepa", "iterative"],
         default="manual",
-        help="How to choose the optimized strategy_hint",
+        help="Optimizer to use when --strategy-source=optimizer",
     )
     parser.add_argument(
         "--scenario",
@@ -58,6 +117,8 @@ def main() -> None:
         default="stale_lockfile",
         help="Incident scenario to simulate in simulation mode or include in task context",
     )
+    parser.add_argument("--skills-root", default=".agents/skills")
+    parser.add_argument("--skill-id", default=None, help="Force a specific skill id (under --skills-root)")
     parser.add_argument("--runtime-image", default="openhands-gepa-sre-target:latest")
     parser.add_argument("--target-url", default="http://127.0.0.1:15000")
     parser.add_argument("--target-container", default=None, help="Optional docker container name where service runs")
@@ -126,9 +187,31 @@ def main() -> None:
             % (args.remote_host, args.allow_local_workspace)
         )
 
-    hint, opt_score = choose_hint(mode=args.mode, optimizer=args.optimizer, runtime_image=args.runtime_image)
-    if args.mode == "optimized" and args.optimizer != "manual":
-        print(f"[optimizer] method={args.optimizer} score={round(opt_score or 0.0, 3)}")
+    effective_strategy_source = args.strategy_source
+    if args.mode == "optimized" and args.strategy_source == "auto":
+        if args.skill_id:
+            effective_strategy_source = "skills"
+        elif args.optimizer != "manual":
+            effective_strategy_source = "optimizer"
+        else:
+            effective_strategy_source = "skills"
+
+    strategy = choose_strategy(
+        mode=args.mode,
+        strategy_source=effective_strategy_source,
+        optimizer=args.optimizer,
+        runtime_image=args.runtime_image,
+        scenario_id=args.scenario,
+        error_report=SCENARIO_ERRORS[args.scenario],
+        skills_root=args.skills_root,
+        skill_id=args.skill_id,
+    )
+
+    if strategy.optimizer_score is not None:
+        print(f"[optimizer] method={args.optimizer} score={round(strategy.optimizer_score, 3)}")
+
+    if strategy.skill_id:
+        print(f"[skill] selected={strategy.skill_id} path={strategy.skill_path}")
 
     runner = OpenHandsSRE(
         runtime_image=args.runtime_image,
@@ -143,7 +226,8 @@ def main() -> None:
     )
 
     result = runner.forward(
-        strategy_hint=hint,
+        strategy_hint=strategy.strategy_hint,
+        preferred_skill=strategy.skill_id,
         error_report=SCENARIO_ERRORS[args.scenario],
         scenario_id=args.scenario,
         stream=not args.simulate,
@@ -157,13 +241,16 @@ def main() -> None:
 
     print("\n=== Demo Result ===")
     print("mode:", args.mode)
+    print("strategy_source:", strategy.strategy_source)
     print("optimizer:", args.optimizer)
     print("scenario:", args.scenario)
     print("target_url:", args.target_url)
     print("target_container:", args.target_container)
     print("remote_host:", args.remote_host)
     print("allow_local_workspace:", args.allow_local_workspace)
-    print("strategy_hint:", hint)
+    print("skill_id:", strategy.skill_id)
+    print("skill_path:", strategy.skill_path)
+    print("strategy_hint:", strategy.strategy_hint)
     print("service_up:", result.get("service_up"))
     print("step_count:", result.get("step_count"))
     print("fallback_used:", result.get("fallback_used", False))

@@ -49,7 +49,8 @@ def wait_for_endpoint(url: str, timeout_s: float = 15.0) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Easy start wrapper for the OpenHands SRE demo")
     parser.add_argument("--mode", choices=["baseline", "optimized"], default="optimized")
-    parser.add_argument("--optimizer", choices=["manual", "gepa", "iterative"], default="gepa")
+    parser.add_argument("--strategy-source", choices=["skills", "optimizer", "manual", "auto"], default="skills")
+    parser.add_argument("--optimizer", choices=["manual", "gepa", "iterative"], default="manual")
     parser.add_argument("--scenario", choices=["stale_lockfile", "bad_env_config", "readiness_probe_fail", "port_mismatch"], default="stale_lockfile")
     parser.add_argument("--port", type=int, default=15000)
     parser.add_argument("--container-name", default="openhands-gepa-demo")
@@ -58,6 +59,7 @@ def main() -> None:
     parser.add_argument("--env-file", default=None)
     parser.add_argument("--allow-fallback", action="store_true")
     parser.add_argument("--simulate", action="store_true")
+    parser.add_argument("--allow-local-workspace", action="store_true", help="Allow local workspace real run (host execution)")
     parser.add_argument("--mock", dest="simulate", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--keep-container", action="store_true")
@@ -112,6 +114,8 @@ def main() -> None:
         "run_demo.py",
         "--mode",
         args.mode,
+        "--strategy-source",
+        args.strategy_source,
         "--optimizer",
         args.optimizer,
         "--scenario",
@@ -132,6 +136,8 @@ def main() -> None:
         cmd.extend(["--env-file", args.env_file])
     if args.allow_fallback:
         cmd.append("--allow-fallback")
+    if args.allow_local_workspace:
+        cmd.append("--allow-local-workspace")
     if args.simulate:
         cmd.append("--simulate")
     if args.require_confirmation_for_risk:
