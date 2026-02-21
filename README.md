@@ -5,6 +5,7 @@ This repository demonstrates a **skills-first SRE agent** built with OpenHands S
 Core idea:
 - OpenHands is the execution runtime (terminal + file editing in sandboxed workspaces).
 - Skills are loaded with OpenHands native APIs (`load_project_skills` + `AgentContext`) from `.agents/skills/`.
+- Source of truth for incident runbooks is `.agents/skills/*/SKILL.md`.
 - Skills are explicit, auditable runbooks per incident type.
 - Optional optimizers (GEPA-style/iterative) are kept as experimental policy-tuning lanes, not the primary abstraction.
 
@@ -281,5 +282,5 @@ Recommended progression:
 ## Tests
 
 ```bash
-uv run python -m unittest tests/test_demo.py tests/test_fanout.py tests/test_web_demo.py -v
+uv run python -m unittest discover -s tests -p 'test_*.py' -v
 ```
