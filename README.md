@@ -70,19 +70,6 @@ Source: [OpenHands SDK Paper (arXiv:2511.03690)](https://arxiv.org/abs/2511.0369
 | **Verification gate** | Independent HTTP probes, not agent self-report |
 | **Executable skills** | `diagnose.py` + `remediate.py` alongside markdown runbooks |
 
-### OpenHands Features Available for Extension
-
-| Feature | Description | Potential Use |
-|---------|-------------|---------------|
-| **Multi-LLM routing** | Route by cost/capability via `RouterLLM` | Use cheap model for diagnostics, expensive for complex reasoning |
-| **Secret masking** | `SecretRegistry` auto-detects credentials | Prevent API keys in logs/LLM context |
-| **Stuck detection** | Automatic loop/redundancy detection | Break infinite diagnostic loops |
-| **Sub-agent delegation** | Spawn specialist child agents | Delegate network debugging to NetworkAgent |
-| **Pause/resume** | Persist state mid-execution | Human review between diagnosis and remediation |
-| **Context condensation** | `LLMSummarizingCondenser` | 2x cost reduction on long incidents |
-| **VNC/VSCode access** | Real-time workspace observation | Watch agent work, intervene live |
-| **MCP integration** | External tool servers | Add Kubernetes, cloud provider tools |
-
 ## Repository Layout
 
 ```text
@@ -375,21 +362,6 @@ uv run python scripts/start_demo.py --skip-build
 uv run python scripts/start_demo.py --simulate
 ```
 
-## Streamlined Surface
-
-This repo now keeps a smaller active surface focused on:
-- `run_demo.py` for incident runs
-- `scripts/start_demo.py` for local target bring-up + execution
-- `scripts/import_itbench_sre.py` for pulling ITBench scenarios
-- `scripts/benchmark_itbench_sample.py` for low-cost dry-run baselines
-- `scripts/benchmark_itbench_real.py` for cost-controlled real-call samples
-- `scripts/fanout_itbench.py` for concurrent multi-incident execution
-- `scripts/fanout_isolated.py` for per-incident remote workspace isolation
-
-Removed from active surface:
-- web demo interface (`web_demo/`) has been removed
-- older demo/scorecard fanout scripts were retired in favor of ITBench-focused flows
-
 ## Production Feature Checklist
 
 - Skills-first incident handling via OpenHands runtime
@@ -401,31 +373,6 @@ Removed from active surface:
 - Stable post-run verifier gate for real calls
 - Laminar tracing + local JSONL trace logging
 - Optional optimizer lane retained as experimental, not primary
-
-## Recommended Extensions Now
-
-Highest-value next features for this demo:
-- `stuck detection` to break diagnostic loops automatically
-- `secret masking` to reduce credential leakage risk in logs/context
-- `pause/resume` to support operator handoff during incidents
-- `context condensation` to control token cost in long runs
-
-Optional observer feature:
-- `VNC/VSCode` is useful for live demos and training, but redundant for core benchmarking when you already have terminal logs + Laminar traces.
-- Keep it opt-in (not default) to avoid extra operational complexity.
-
-Observer mode example:
-
-```bash
-uv run python scripts/start_demo.py \
-  --mode optimized \
-  --scenario stale_lockfile \
-  --remote-host http://localhost:3000 \
-  --remote-working-dir /workspace/inc-001 \
-  --vnc
-```
-
-`--vnc` enables observer-mode messaging and prints the remote session context for live monitoring.
 
 ## Optional Optimizer Lane (GEPA/Iterative)
 
@@ -484,46 +431,6 @@ Recommended progression:
 ```bash
 uv run python -m unittest discover -s tests -p 'test_*.py' -v
 ```
-
-## Roadmap: Additional OpenHands Features to Integrate
-
-The following OpenHands capabilities could strengthen this demo further:
-
-### High Priority
-
-| Feature | Description | Implementation |
-|---------|-------------|----------------|
-| **Cost tracking** | Track tokens and USD per run | Add `input_tokens`, `output_tokens`, `cost_usd` to trace log |
-| **Skill leaderboard** | Aggregate trace metrics per skill | Script to summarize success rate, avg steps, avg cost |
-| **Side-by-side comparison** | Show with/without OpenHands features | `--compare` flag showing security, sandbox, verification |
-
-### Medium Priority
-
-| Feature | Description | Implementation |
-|---------|-------------|----------------|
-| **Multi-LLM routing** | Route diagnostics to cheap model, reasoning to expensive | Add `--router-llm` with cost-based routing |
-| **Stuck detection** | Break infinite loops automatically | Add `--stuck-detection --max-repeated-actions N` |
-| **Failure analysis** | Auto-analyze failed traces, suggest skill updates | Script to identify common failure patterns |
-| **Dual-agent mode** | Haiku student + Sonnet teacher for cost reduction | Add `--dual-agent --student-model --teacher-model` |
-
-### Lower Priority (Advanced)
-
-| Feature | Description | Implementation |
-|---------|-------------|----------------|
-| **Pause/resume** | Save state mid-execution for human review | Add `--pause-after-diagnosis` and `--resume-from` |
-| **Secret masking demo** | Show credential detection in action | Scenario with API key that gets auto-masked |
-| **MCP integration** | Add external tool servers (K8s, cloud) | Add `--mcp-server` flag for tool extension |
-| **Sub-agent delegation** | Spawn specialist agents for subtasks | Add NetworkDebugAgent, LogAnalysisAgent |
-| **Context condensation** | Enable summarizer for long incidents | Add `--condense-context` with cost comparison |
-
-### Production Hardening
-
-| Feature | Description | Implementation |
-|---------|-------------|----------------|
-| **Retry with backoff** | Resilient execution for transient failures | Already partial; extend with configurable backoff |
-| **Timeout budgets** | Per-step and total execution budgets | Add `--step-timeout-s` alongside `--run-timeout-s` |
-| **Audit logging** | Immutable audit trail for compliance | Write to append-only log with signatures |
-| **RBAC integration** | Role-based access for multi-user | Integrate with agent-server auth |
 
 ## References
 
