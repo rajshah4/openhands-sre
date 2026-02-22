@@ -33,47 +33,30 @@ For SRE workflows, skills are easier to operate than prompt-only optimization:
 - transparent auditing/debugging
 - natural path to trace-driven improvement
 
-## Why OpenHands vs. LangGraph or Other Frameworks
+## Why OpenHands
 
-OpenHands provides production-grade infrastructure that would take weeks to build with LangGraph, CrewAI, or raw function calling.
+OpenHands provides production-grade agent infrastructure out of the box. The following features are built into the SDK:
 
-### Feature Comparison
+### SDK Features
 
-| Capability | OpenHands SDK | OpenAI SDK | Claude SDK | LangGraph |
-|------------|---------------|------------|------------|-----------|
-| Sandboxed execution | Native | - | - | DIY |
-| Security risk classification | Per-action LOW/MEDIUM/HIGH | - | - | DIY |
-| Confirmation gates | Built-in policy | - | - | DIY |
-| Multi-LLM routing | RouterLLM (100+ providers) | - | - | Manual |
-| Secret auto-masking | SecretRegistry | - | - | - |
-| Stuck detection | Automatic | - | - | DIY |
-| Sub-agent delegation | Native tool | - | - | Manual |
-| Pause/resume | State persistence | - | - | Manual |
-| Context condensation | 2x cost savings | - | - | - |
-| Built-in benchmarks | 15 benchmarks | - | - | - |
-| VNC/VSCode workspace | Interactive | - | - | - |
-| MCP integration | First-class | - | Native | - |
-| Event-sourced replay | Deterministic | - | - | - |
-| Skills from markdown | Native API | - | - | - |
+| Capability | Description |
+|------------|-------------|
+| Sandboxed execution | Isolated Docker workspaces via `RemoteWorkspace` API |
+| Security risk classification | Per-action LOW/MEDIUM/HIGH labels with policy enforcement |
+| Confirmation gates | Built-in approval workflows for risky actions |
+| Multi-LLM routing | `RouterLLM` supports 100+ providers with cost/capability routing |
+| Secret auto-masking | `SecretRegistry` detects and masks credentials automatically |
+| Stuck detection | Automatic detection of loops and redundant tool calls |
+| Sub-agent delegation | Spawn child agents as native tools |
+| Pause/resume | State persistence for long-running or interrupted sessions |
+| Context condensation | `LLMSummarizingCondenser` reduces token costs |
+| Built-in benchmarks | 15 integrated benchmarks (SWE-Bench, WebArena, GAIA, etc.) |
+| VNC/VSCode workspace | Real-time GUI observation and intervention |
+| MCP integration | First-class support for Model Context Protocol tools |
+| Event-sourced replay | Deterministic replay from immutable event logs |
+| Skills from markdown | Native `load_project_skills()` API |
 
 Source: [OpenHands SDK Paper (arXiv:2511.03690)](https://arxiv.org/abs/2511.03690)
-
-### What You'd Build Yourself with LangGraph
-
-| Component | Estimated Effort | OpenHands Equivalent |
-|-----------|------------------|---------------------|
-| Docker sandbox orchestration | 500+ LOC | `RemoteWorkspace` API |
-| Security risk classification | 200+ LOC | Built-in per-action labels |
-| Confirmation gate system | 100+ LOC | `--require-confirmation-for-risk` |
-| Tool execution wrapper | 300+ LOC | `TerminalTool`, `FileEditorTool` |
-| Skills loading/routing | 150+ LOC | `load_project_skills()` |
-| Event streaming callbacks | 200+ LOC | Native event loop |
-| State persistence/resume | 300+ LOC | `ConversationState` |
-| **Total** | **1750+ LOC + testing** | **Included in SDK** |
-
-**Time to production:**
-- OpenHands: Days (integrate SDK, write skills)
-- LangGraph: Weeks (build infrastructure, test edge cases)
 
 ### OpenHands Differentiators Used in This Demo
 
