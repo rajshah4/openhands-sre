@@ -4,7 +4,6 @@ from dataclasses import asdict, dataclass
 import json
 import os
 from pathlib import Path
-import re
 import time
 from typing import Any
 
@@ -71,7 +70,13 @@ class OpenHandsSRE:
         self.real_max_retries = max(0, real_max_retries)
         self.real_run_timeout_s = max(30, real_run_timeout_s)
 
-    def _build_system_message(self, strategy_hint: str, target_url: str, preferred_skill: str | None = None) -> str:
+    def _build_system_message(
+        self,
+        strategy_hint: str,
+        target_url: str,
+        target_container: str | None = None,
+        preferred_skill: str | None = None,
+    ) -> str:
         base = (
             "You are an SRE incident-response agent. "
             "Use Terminal and FileEditor tools to diagnose and recover service health quickly. "
@@ -80,6 +85,12 @@ class OpenHandsSRE:
             "Always verify with curl after making a change. "
             f"Runbook hint: {strategy_hint}"
         )
+        if target_container:
+            base += (
+                f" Target container is '{target_container}'. If you must restart/recreate it, "
+                "preserve the same container name and image discovered via docker inspect. "
+                "Do not switch to unrelated images/services."
+            )
         if not preferred_skill:
             return base
         return f"{base} Preferred skill to apply first: {preferred_skill}."
@@ -254,7 +265,12 @@ class OpenHandsSRE:
                 skills = ordered
         agent_context = AgentContext(skills=skills)
 
-        system_message = self._build_system_message(strategy_hint, target_url, preferred_skill=preferred_skill)
+        system_message = self._build_system_message(
+            strategy_hint,
+            target_url,
+            target_container=target_container,
+            preferred_skill=preferred_skill,
+        )
         target_context = (
             f"Target service endpoint: {target_url}. "
             if not target_container
@@ -269,6 +285,8 @@ class OpenHandsSRE:
             f"{target_context}"
             "Diagnose why the app is failing and fix it. "
             "Ensure it returns HTTP 200. "
+            f"Done criteria: external curl to {target_url} must return JSON containing status='ok' "
+            f"and scenario='{scenario_id}'. "
             "You must use terminal commands to inspect state, apply a fix, and verify with curl. "
             "If you do not execute tools, the task is incomplete. "
             f"Scenario: {scenario_id}. "
@@ -349,14 +367,8 @@ class OpenHandsSRE:
 
             raw = final_message or "\n".join(events[-6:])
             step_count = len(terminal_or_file_actions)
-            combined_output = "\n".join([raw, *events])
-            saw_curl = "curl" in combined_output.lower()
-            saw_http_200 = bool(
-                re.search(r"HTTP/\d(?:\.\d)?\s+200\b", combined_output, flags=re.IGNORECASE)
-                or re.search(r"\bcurl\b[^\n]*\b200\b", combined_output, flags=re.IGNORECASE)
-                or (re.search(r"\b200\b", raw) and saw_curl)
-            )
-            service_up = saw_curl and saw_http_200
+            # Real-mode health is evaluated externally by run_demo verifier.
+            service_up = False
 
         finally:
             try:

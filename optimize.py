@@ -78,8 +78,9 @@ def validate_fix(example: dict[str, Any], prediction: dict[str, Any], trace: Any
     return 0.75
 
 
-def load_examples() -> list[dict[str, Any]]:
-    return json.loads(TRAINING_DATA.read_text(encoding="utf-8"))
+def load_examples(training_data: str | Path | None = None) -> list[dict[str, Any]]:
+    path = Path(training_data) if training_data else TRAINING_DATA
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def load_gepa_optimizer() -> Any:
@@ -100,12 +101,12 @@ def candidate_hints() -> list[str]:
         "Fix the bug.",
         "Check application code and restart the service.",
         (
-            "Use quick triage first: verify /tmp lockfiles, required env variables, readiness artifacts, "
+            "Use quick triage first: verify /tmp lockfiles, readiness artifacts, "
             "and listening ports; apply the minimal fix and re-verify with curl localhost:5000."
         ),
         (
             "Follow this runbook: (1) curl localhost:5000, (2) inspect /tmp/service.lock and /tmp/ready.flag, "
-            "(3) check REQUIRED_API_KEY, (4) verify bound ports with ss -lntp, (5) fix the identified issue and retest."
+            "(3) verify bound ports with ss -lntp, (4) fix the identified issue and retest."
         ),
     ]
 
@@ -161,7 +162,6 @@ def iterative_refinement_optimize(
 
     scenario_patches = {
         "stale_lockfile": "check /tmp/service.lock and remove stale lockfiles early",
-        "bad_env_config": "verify REQUIRED_API_KEY before deeper debugging",
         "readiness_probe_fail": "check /tmp/ready.flag readiness artifacts",
         "port_mismatch": "inspect listening ports and verify 5000 vs 5001",
     }
@@ -218,10 +218,11 @@ def main() -> None:
     parser.add_argument("--runtime-image", default="openhands-gepa-sre-target:latest")
     parser.add_argument("--optimizer", choices=["gepa", "iterative"], default="gepa")
     parser.add_argument("--iterative-rounds", type=int, default=3)
+    parser.add_argument("--training-data", default=str(TRAINING_DATA))
     parser.add_argument("--use-real-runner", action="store_true", help="Use real OpenHands SDK execution")
     args = parser.parse_args()
 
-    examples = load_examples()
+    examples = load_examples(args.training_data)
     runner = OpenHandsSRE(runtime_image=args.runtime_image)
 
     # We keep GEPA detection for compatibility, but the runtime in this demo stays simulation-fast.

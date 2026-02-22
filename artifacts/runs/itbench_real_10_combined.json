@@ -1,0 +1,133 @@
+{
+  "summary": {
+    "total": 10,
+    "ok": 8,
+    "timeouts": 2,
+    "setup_failed": 0,
+    "service_up_true": 8,
+    "service_up_rate_ok_pct": 100.0,
+    "completed_rate_pct": 80.0
+  },
+  "rows": [
+    {
+      "index": 1,
+      "source_scenario_id": "itbench_incident_37",
+      "mapped_scenario": "port_mismatch",
+      "status": "timeout",
+      "returncode": "TIMEOUT",
+      "elapsed_s": 190.1,
+      "run_id": null,
+      "service_up": null,
+      "step_count": null,
+      "fallback_used": null
+    },
+    {
+      "index": 2,
+      "source_scenario_id": "itbench_incident_42",
+      "mapped_scenario": "port_mismatch",
+      "status": "ok",
+      "returncode": 0,
+      "elapsed_s": 92.1,
+      "run_id": "run-1771705547",
+      "service_up": "True",
+      "step_count": "27",
+      "fallback_used": "False"
+    },
+    {
+      "index": 3,
+      "source_scenario_id": "itbench_incident_54",
+      "mapped_scenario": "stale_lockfile",
+      "status": "ok",
+      "returncode": 0,
+      "elapsed_s": 20.1,
+      "run_id": "run-1771705641",
+      "service_up": "True",
+      "step_count": "7",
+      "fallback_used": "False"
+    },
+    {
+      "index": 4,
+      "source_scenario_id": "itbench_incident_49",
+      "mapped_scenario": "readiness_probe_fail",
+      "status": "ok",
+      "returncode": 0,
+      "elapsed_s": 14.1,
+      "run_id": "run-1771705664",
+      "service_up": "True",
+      "step_count": "4",
+      "fallback_used": "False"
+    },
+    {
+      "index": 5,
+      "source_scenario_id": "itbench_incident_51",
+      "mapped_scenario": "stale_lockfile",
+      "status": "ok",
+      "returncode": 0,
+      "elapsed_s": 20.0,
+      "run_id": "run-1771705680",
+      "service_up": "True",
+      "step_count": "5",
+      "fallback_used": "False"
+    },
+    {
+      "index": 6,
+      "source_scenario_id": "itbench_incident_40",
+      "mapped_scenario": "port_mismatch",
+      "status": "timeout",
+      "returncode": "TIMEOUT",
+      "elapsed_s": 190.1,
+      "run_id": null,
+      "service_up": null,
+      "step_count": null,
+      "fallback_used": null
+    },
+    {
+      "index": 1,
+      "source_scenario_id": "itbench_incident_49",
+      "mapped_scenario": "readiness_probe_fail",
+      "status": "ok",
+      "returncode": 0,
+      "elapsed_s": 14.5,
+      "run_id": "run-1771705918",
+      "service_up": "True",
+      "step_count": "4",
+      "fallback_used": "False"
+    },
+    {
+      "index": 2,
+      "source_scenario_id": "itbench_incident_51",
+      "mapped_scenario": "stale_lockfile",
+      "status": "ok",
+      "returncode": 0,
+      "elapsed_s": 21.3,
+      "run_id": "run-1771705935",
+      "service_up": "True",
+      "step_count": "8",
+      "fallback_used": "False"
+    },
+    {
+      "index": 3,
+      "source_scenario_id": "itbench_incident_54",
+      "mapped_scenario": "stale_lockfile",
+      "status": "ok",
+      "returncode": 0,
+      "elapsed_s": 17.3,
+      "run_id": "run-1771705958",
+      "service_up": "True",
+      "step_count": "6",
+      "fallback_used": "False"
+    },
+    {
+      "index": 10,
+      "source_scenario_id": "manual_final_1",
+      "mapped_scenario": "stale_lockfile",
+      "status": "ok",
+      "returncode": 0,
+      "elapsed_s": null,
+      "run_id": "run-1771705985",
+      "service_up": "True",
+      "step_count": "8",
+      "fallback_used": "False"
+    }
+  ]
+}

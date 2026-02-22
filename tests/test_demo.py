@@ -25,7 +25,7 @@ class DemoSmokeTests(unittest.TestCase):
         out = run_cmd(["optimize.py"])
         self.assertIn("[sim-gepa] scenarios:", out)
         self.assertIn("stale_lockfile", out)
-        self.assertIn("bad_env_config", out)
+        self.assertIn("readiness_probe_fail", out)
         self.assertIn("port_mismatch", out)
 
     def test_baseline_and_optimized_step_gap_for_lockfile(self) -> None:
@@ -43,8 +43,8 @@ class DemoSmokeTests(unittest.TestCase):
         self.assertIn("step_count: 3", optimized)
 
     def test_optimized_mode_supports_other_scenarios(self) -> None:
-        out = run_cmd(["run_demo.py", "--mode", "optimized", "--scenario", "bad_env_config", "--simulate"])
-        self.assertIn("scenario: bad_env_config", out)
+        out = run_cmd(["run_demo.py", "--mode", "optimized", "--scenario", "readiness_probe_fail", "--simulate"])
+        self.assertIn("scenario: readiness_probe_fail", out)
         self.assertIn("service_up: True", out)
         self.assertIn("step_count: 3", out)
 

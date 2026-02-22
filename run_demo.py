@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -16,14 +17,13 @@ from optimize import get_best_hint, load_examples
 
 SCENARIO_ERRORS = {
     "stale_lockfile": "Service at localhost:5000 returns HTTP 500 after a previous crash.",
-    "bad_env_config": "Service at localhost:5000 fails with missing REQUIRED_API_KEY.",
     "readiness_probe_fail": "Service startup passes but readiness probe stays unhealthy due to missing ready flag.",
     "port_mismatch": "Service probe on :5000 fails; process may be listening on a different port.",
 }
 
 BASELINE_HINT = "Fix the bug."
 OPTIMIZED_HINT = (
-    "Follow an incident-first runbook: check /tmp/service.lock and /tmp/ready.flag, verify REQUIRED_API_KEY, "
+    "Follow an incident-first runbook: check /tmp/service.lock and /tmp/ready.flag, "
     "check active listening ports with ss -lntp, apply the minimal corrective action, and re-verify with curl localhost:5000."
 )
 
@@ -36,11 +36,15 @@ class StrategySelection(argparse.Namespace):
     skill_path: str | None
 
 
-def choose_optimizer_hint(optimizer: str, runtime_image: str) -> tuple[str, float | None]:
+def choose_optimizer_hint(
+    optimizer: str,
+    runtime_image: str,
+    training_data: str | None = None,
+) -> tuple[str, float | None]:
     if optimizer == "manual":
         return OPTIMIZED_HINT, None
 
-    examples = load_examples()
+    examples = load_examples(training_data)
     runner = OpenHandsSRE(runtime_image=runtime_image)
     hint, score, _history = get_best_hint(
         optimizer=optimizer,
@@ -56,6 +60,7 @@ def choose_strategy(
     strategy_source: str,
     optimizer: str,
     runtime_image: str,
+    training_data: str | None,
     scenario_id: str,
     error_report: str,
     skills_root: str,
@@ -78,7 +83,11 @@ def choose_strategy(
 
     if strategy_source == "optimizer":
         selected.strategy_source = f"optimizer:{optimizer}"
-        selected.strategy_hint, selected.optimizer_score = choose_optimizer_hint(optimizer, runtime_image)
+        selected.strategy_hint, selected.optimizer_score = choose_optimizer_hint(
+            optimizer,
+            runtime_image,
+            training_data,
+        )
         return selected
 
     if skill_id:
@@ -112,35 +121,132 @@ def _probe_http_code(url: str) -> str:
     return (proc.stdout or "000").strip()
 
 
+def _probe_http_response(url: str) -> dict[str, Any]:
+    proc = subprocess.run(
+        ["curl", "-sS", "-i", url],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return {
+            "http_code": "000",
+            "headers": {},
+            "body": "",
+            "error": (proc.stderr or proc.stdout or "").strip(),
+        }
+
+    raw = proc.stdout or ""
+    header_text = ""
+    body = raw
+    if "\r\n\r\n" in raw:
+        header_text, body = raw.split("\r\n\r\n", 1)
+    elif "\n\n" in raw:
+        header_text, body = raw.split("\n\n", 1)
+
+    status_line = ""
+    headers: dict[str, str] = {}
+    if header_text:
+        header_lines = [line.strip() for line in header_text.splitlines() if line.strip()]
+        if header_lines:
+            status_line = header_lines[0]
+        for line in header_lines[1:]:
+            if ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            headers[key.strip().lower()] = value.strip()
+
+    code_match = re.search(r"HTTP/\d(?:\.\d)?\s+(\d{3})\b", status_line)
+    code = code_match.group(1) if code_match else _probe_http_code(url)
+    return {
+        "http_code": code,
+        "headers": headers,
+        "body": body.strip(),
+        "error": "",
+    }
+
+
+def inspect_target_container(name: str) -> dict[str, Any]:
+    proc = subprocess.run(
+        ["docker", "inspect", "--format", "{{.Config.Image}}|{{.State.Running}}", name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return {"exists": False, "running": False, "image": None, "error": (proc.stderr or "").strip()}
+    out = (proc.stdout or "").strip()
+    image, running = (out.split("|", 1) + [""])[:2]
+    return {
+        "exists": True,
+        "running": running.strip().lower() == "true",
+        "image": image.strip() or None,
+        "error": "",
+    }
+
+
 def verify_stable_endpoint(
     *,
     url: str,
+    expected_scenario: str,
     consecutive_successes: int,
     max_attempts: int,
     interval_s: float,
 ) -> dict[str, Any]:
     successes = 0
     attempts: list[str] = []
+    observations: list[dict[str, Any]] = []
+    last_failure = ""
 
     for _ in range(max_attempts):
-        code = _probe_http_code(url)
+        observation = _probe_http_response(url)
+        code = str(observation.get("http_code", "000"))
         attempts.append(code)
-        if code == "200":
+        observations.append({"http_code": code, "content_type": observation.get("headers", {}).get("content-type", "")})
+        reason = ""
+
+        if code != "200":
+            reason = f"http code {code}"
+        else:
+            content_type = str(observation.get("headers", {}).get("content-type", "")).lower()
+            if "application/json" not in content_type:
+                reason = f"unexpected content-type {content_type or '(missing)'}"
+            else:
+                body = str(observation.get("body", ""))
+                try:
+                    payload = json.loads(body)
+                except json.JSONDecodeError:
+                    reason = "invalid JSON body"
+                else:
+                    if payload.get("status") != "ok":
+                        reason = f"unexpected status field {payload.get('status')!r}"
+                    elif payload.get("scenario") != expected_scenario:
+                        reason = (
+                            f"unexpected scenario field {payload.get('scenario')!r}; "
+                            f"expected {expected_scenario!r}"
+                        )
+
+        if not reason:
             successes += 1
             if successes >= consecutive_successes:
                 return {
                     "verified": True,
                     "attempts": attempts,
                     "consecutive_target": consecutive_successes,
+                    "last_failure": "",
+                    "observations": observations,
                 }
         else:
             successes = 0
+            last_failure = reason
         time.sleep(max(0.1, interval_s))
 
     return {
         "verified": False,
         "attempts": attempts,
         "consecutive_target": consecutive_successes,
+        "last_failure": last_failure,
+        "observations": observations,
     }
 
 
@@ -197,6 +303,7 @@ def main() -> None:
     parser.add_argument("--skills-root", default=".agents/skills")
     parser.add_argument("--skill-id", default=None, help="Force a specific skill id (under --skills-root)")
     parser.add_argument("--runtime-image", default="openhands-gepa-sre-target:latest")
+    parser.add_argument("--training-data", default=None, help="Optional scenario training JSON for optimizer lane")
     parser.add_argument("--target-url", default="http://127.0.0.1:15000")
     parser.add_argument("--target-container", default=None, help="Optional docker container name where service runs")
     parser.add_argument("--remote-host", default=os.getenv("OPENHANDS_REMOTE_HOST"))
@@ -215,6 +322,11 @@ def main() -> None:
     parser.add_argument("--verify-consecutive-successes", type=int, default=2)
     parser.add_argument("--verify-max-attempts", type=int, default=6)
     parser.add_argument("--verify-interval-s", type=float, default=1.5)
+    parser.add_argument(
+        "--disable-container-identity-check",
+        action="store_true",
+        help="Disable post-run validation that target container is still running with expected image",
+    )
     parser.add_argument(
         "--allow-fallback",
         action="store_true",
@@ -286,6 +398,7 @@ def main() -> None:
         strategy_source=effective_strategy_source,
         optimizer=args.optimizer,
         runtime_image=args.runtime_image,
+        training_data=args.training_data,
         scenario_id=args.scenario,
         error_report=SCENARIO_ERRORS[args.scenario],
         skills_root=args.skills_root,
@@ -328,11 +441,33 @@ def main() -> None:
     if not args.simulate:
         verification = verify_stable_endpoint(
             url=args.target_url,
+            expected_scenario=args.scenario,
             consecutive_successes=max(1, args.verify_consecutive_successes),
             max_attempts=max(1, args.verify_max_attempts),
             interval_s=max(0.1, args.verify_interval_s),
         )
-        result["service_up"] = bool(result.get("service_up", False)) and bool(verification["verified"])
+
+        container_identity: dict[str, Any] | None = None
+        if args.target_container and not args.disable_container_identity_check:
+            inspected = inspect_target_container(args.target_container)
+            expected_image = args.runtime_image
+            image_matches = bool(inspected.get("exists")) and inspected.get("image") == expected_image
+            container_identity = {
+                "verified": bool(inspected.get("exists"))
+                and bool(inspected.get("running"))
+                and image_matches,
+                "container": args.target_container,
+                "expected_image": expected_image,
+                "actual_image": inspected.get("image"),
+                "running": bool(inspected.get("running")),
+                "exists": bool(inspected.get("exists")),
+                "error": inspected.get("error", ""),
+            }
+            verification["container_identity"] = container_identity
+            verification["verified"] = bool(verification["verified"]) and bool(container_identity["verified"])
+
+        # In real mode, service_up is derived from verifier truth only.
+        result["service_up"] = bool(verification["verified"])
 
     if not args.disable_trace_log:
         row = build_trace_record(

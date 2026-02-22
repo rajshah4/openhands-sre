@@ -1,6 +1,6 @@
 # OpenHands SRE Skills Demo
 
-This repository demonstrates a **skills-first SRE agent** built with OpenHands SDK.
+This repository demonstrates a **skills-first SRE agent** built with the OpenHands SDK.
 
 Core idea:
 - OpenHands is the execution runtime (terminal + file editing in sandboxed workspaces).
@@ -33,19 +33,86 @@ For SRE workflows, skills are easier to operate than prompt-only optimization:
 - transparent auditing/debugging
 - natural path to trace-driven improvement
 
+## Why OpenHands vs. LangGraph or Other Frameworks
+
+OpenHands provides production-grade infrastructure that would take weeks to build with LangGraph, CrewAI, or raw function calling.
+
+### Feature Comparison
+
+| Capability | OpenHands SDK | OpenAI SDK | Claude SDK | LangGraph |
+|------------|---------------|------------|------------|-----------|
+| Sandboxed execution | Native | - | - | DIY |
+| Security risk classification | Per-action LOW/MEDIUM/HIGH | - | - | DIY |
+| Confirmation gates | Built-in policy | - | - | DIY |
+| Multi-LLM routing | RouterLLM (100+ providers) | - | - | Manual |
+| Secret auto-masking | SecretRegistry | - | - | - |
+| Stuck detection | Automatic | - | - | DIY |
+| Sub-agent delegation | Native tool | - | - | Manual |
+| Pause/resume | State persistence | - | - | Manual |
+| Context condensation | 2x cost savings | - | - | - |
+| Built-in benchmarks | 15 benchmarks | - | - | - |
+| VNC/VSCode workspace | Interactive | - | - | - |
+| MCP integration | First-class | - | Native | - |
+| Event-sourced replay | Deterministic | - | - | - |
+| Skills from markdown | Native API | - | - | - |
+
+Source: [OpenHands SDK Paper (arXiv:2511.03690)](https://arxiv.org/abs/2511.03690)
+
+### What You'd Build Yourself with LangGraph
+
+| Component | Estimated Effort | OpenHands Equivalent |
+|-----------|------------------|---------------------|
+| Docker sandbox orchestration | 500+ LOC | `RemoteWorkspace` API |
+| Security risk classification | 200+ LOC | Built-in per-action labels |
+| Confirmation gate system | 100+ LOC | `--require-confirmation-for-risk` |
+| Tool execution wrapper | 300+ LOC | `TerminalTool`, `FileEditorTool` |
+| Skills loading/routing | 150+ LOC | `load_project_skills()` |
+| Event streaming callbacks | 200+ LOC | Native event loop |
+| State persistence/resume | 300+ LOC | `ConversationState` |
+| **Total** | **1750+ LOC + testing** | **Included in SDK** |
+
+**Time to production:**
+- OpenHands: Days (integrate SDK, write skills)
+- LangGraph: Weeks (build infrastructure, test edge cases)
+
+### OpenHands Differentiators Used in This Demo
+
+| Feature | How It's Used Here |
+|---------|-------------------|
+| **Security risk classification** | Every action labeled LOW/MEDIUM/HIGH, enforced via `--max-security-risk` |
+| **Confirmation gates** | `--require-confirmation-for-risk MEDIUM` blocks risky actions |
+| **Skills system** | `.agents/skills/*/SKILL.md` loaded via `load_project_skills()` + `AgentContext` |
+| **Sandboxed execution** | `--remote-host` for isolated agent-server workspace |
+| **Event streaming** | Real-time action/observation logging to trace file |
+| **Verification gate** | Independent HTTP probes, not agent self-report |
+| **Executable skills** | `diagnose.py` + `remediate.py` alongside markdown runbooks |
+
+### OpenHands Features Available for Extension
+
+| Feature | Description | Potential Use |
+|---------|-------------|---------------|
+| **Multi-LLM routing** | Route by cost/capability via `RouterLLM` | Use cheap model for diagnostics, expensive for complex reasoning |
+| **Secret masking** | `SecretRegistry` auto-detects credentials | Prevent API keys in logs/LLM context |
+| **Stuck detection** | Automatic loop/redundancy detection | Break infinite diagnostic loops |
+| **Sub-agent delegation** | Spawn specialist child agents | Delegate network debugging to NetworkAgent |
+| **Pause/resume** | Persist state mid-execution | Human review between diagnosis and remediation |
+| **Context condensation** | `LLMSummarizingCondenser` | 2x cost reduction on long incidents |
+| **VNC/VSCode access** | Real-time workspace observation | Watch agent work, intervene live |
+| **MCP integration** | External tool servers | Add Kubernetes, cloud provider tools |
+
 ## Repository Layout
 
 ```text
 openhands-gepa-sre/
-├── .agents/skills/                    # Skill library (one SKILL.md per incident class)
-├── target_service/                # Scenario-driven broken Flask app in Docker
-├── openhands_driver/              # OpenHands SDK wrapper + skill router + env preflight
-├── training_data/                 # Scenario examples (legacy optimizer lane)
-├── run_demo.py                    # Skills-first demo runner
-├── optimize.py                    # Optional GEPA-style / iterative optimization lane
-├── scripts/                       # Fan-out, dashboard, and guided demo scripts
-├── tests/                         # Smoke + integration tests
-├── pyproject.toml                 # uv project/dependency definition
+├── .agents/skills/      # Skill library (one SKILL.md per incident class)
+├── target_service/      # Scenario-driven broken Flask app in Docker
+├── openhands_driver/    # OpenHands SDK wrapper + skill router + env preflight
+├── training_data/       # Scenario examples (legacy optimizer lane)
+├── run_demo.py          # Skills-first demo runner
+├── optimize.py          # Optional GEPA-style / iterative optimization lane
+├── scripts/             # Import + benchmark + run helpers
+├── tests/               # Smoke + integration tests
+├── pyproject.toml       # uv project/dependency definition
 └── uv.lock
 ```
 
@@ -53,15 +120,16 @@ openhands-gepa-sre/
 
 `target_service` supports:
 - `stale_lockfile`
-- `bad_env_config`
 - `readiness_probe_fail`
 - `port_mismatch`
 
 Matching skills are in:
 - `.agents/skills/stale-lockfile/SKILL.md`
-- `.agents/skills/bad-env-config/SKILL.md`
 - `.agents/skills/readiness-probe-fail/SKILL.md`
 - `.agents/skills/port-mismatch/SKILL.md`
+
+`bad_env_config` remains in the repository as an archived stress/regression scenario,
+but it is no longer part of the active demo/default scenario set.
 
 ## Quick Start
 
@@ -111,6 +179,21 @@ uv run python run_demo.py \
 - `--strategy-source manual`: use fixed optimized prompt hint
 - `--strategy-source optimizer`: use optional optimizer lane (`--optimizer gepa|iterative|manual`)
 
+Atlas/Arc dataset hook:
+- `run_demo.py` and `optimize.py` accept `--training-data <path>` so you can supply an external scenario JSON file
+  with the same schema as `training_data/scenarios.json`.
+- `scripts/import_itbench_sre.py` can import ITBench SRE incidents directly from
+  `itbench-hub/ITBench` into that schema.
+
+Import ITBench SRE scenarios:
+
+```bash
+uv run python scripts/import_itbench_sre.py \
+  --source https://github.com/itbench-hub/ITBench.git \
+  --source-subdir scenarios/sre \
+  --output training_data/atlas_sre_scenarios.json
+```
+
 Example optimizer lane (optional):
 
 ```bash
@@ -118,8 +201,78 @@ uv run python run_demo.py \
   --mode optimized \
   --strategy-source optimizer \
   --optimizer gepa \
+  --training-data training_data/atlas_sre_scenarios.json \
   --scenario stale_lockfile \
   --simulate
+```
+
+Low-cost sampled baseline (dry-run proxy):
+
+```bash
+uv run python scripts/benchmark_itbench_sample.py \
+  --training-data training_data/atlas_sre_scenarios.json \
+  --sample-size 20 \
+  --mode optimized \
+  --output artifacts/runs/itbench_sample_optimized.json
+```
+
+Cost-controlled real-call sampled baseline:
+
+```bash
+uv run python scripts/benchmark_itbench_real.py \
+  --training-data training_data/atlas_sre_scenarios.json \
+  --sample-size 10 \
+  --run-timeout-s 90 \
+  --subprocess-timeout-s 190 \
+  --output artifacts/runs/itbench_real_sample.json
+```
+
+Production-style fan-out (multi-incident, concurrent workers):
+
+```bash
+uv run python scripts/fanout_itbench.py \
+  --training-data training_data/atlas_sre_scenarios.json \
+  --sample-size 12 \
+  --concurrency 3 \
+  --run-timeout-s 90 \
+  --subprocess-timeout-s 190 \
+  --output artifacts/runs/itbench_fanout.json
+```
+
+Local agent-server mode (real sandbox isolation, no cloud dependency):
+
+```bash
+# Terminal 1
+docker run -p 3000:3000 ghcr.io/openhands/agent-server:latest
+
+# Terminal 2
+uv run python run_demo.py \
+  --mode optimized \
+  --strategy-source skills \
+  --scenario stale_lockfile \
+  --remote-host http://localhost:3000 \
+  --remote-working-dir /workspace/inc-001
+```
+
+Low-cost fan-out smoke (no real model calls):
+
+```bash
+uv run python scripts/fanout_itbench.py \
+  --training-data training_data/atlas_sre_scenarios.json \
+  --sample-size 12 \
+  --concurrency 4 \
+  --simulate \
+  --output artifacts/runs/itbench_fanout_sim.json
+```
+
+Multi-incident isolation demo (each incident gets its own remote workspace):
+
+```bash
+uv run python scripts/fanout_isolated.py \
+  --incidents 4 \
+  --concurrency 2 \
+  --remote-host http://localhost:3000 \
+  --output artifacts/runs/fanout_isolated.json
 ```
 
 ## Real Calls + Observability
@@ -132,19 +285,28 @@ Expected keys:
 
 Real mode fails fast if required keys are missing.
 
+Laminar observability:
+- Laminar tracing is supported when `LMNR_PROJECT_API_KEY` is set.
+- Runs still write local structured traces to `artifacts/runs/trace_log.jsonl` for offline analysis.
+
 ## OpenHands Tooling
 
 Real tool execution depends on `openhands-tools` (Terminal/FileEditor), installed via `uv sync`.
 
 ## Security Controls
 
+Primary controls in real runs:
+- action risk classification with `--max-security-risk`
+- confirmation gates with `--require-confirmation-for-risk`
+- auto-approval toggle with `--auto-confirm`
+- human-in-the-loop override with `--interactive` in `scripts/start_demo.py`
 
 ## Production Verification Gate
 
 Real runs now include a stability verifier gate after agent execution:
 - requires N consecutive HTTP 200 probes
 - bounded by max attempts and probe interval
-- `service_up` is only true when both agent output and verifier pass
+- `service_up` is derived from verifier truth in real mode
 
 Relevant flags on `run_demo.py`:
 - `--verify-consecutive-successes` (default: `2`)
@@ -168,6 +330,54 @@ uv run python run_demo.py \
 - `--require-confirmation-for-risk {LOW|MEDIUM|HIGH}`
 - `--auto-confirm`
 
+Security-gates demo (safe simulation):
+
+```bash
+uv run python scripts/start_demo.py --demo-security-gates
+```
+
+This demonstrates:
+- blocking a `HIGH` risk action when `max_security_risk=MEDIUM`
+- confirmation-required behavior for `MEDIUM+` risk
+- auto-approve behavior with `--auto-confirm`
+
+## Live Intervention Mode
+
+Use `--interactive` to pause before execution and approve, reject, or edit a proposed remediation command.
+
+```bash
+uv run python scripts/start_demo.py \
+  --mode optimized \
+  --scenario stale_lockfile \
+  --interactive \
+  --allow-local-workspace
+```
+
+Example flow:
+
+```text
+Agent proposes: docker exec openhands-gepa-demo rm -f /tmp/service.lock
+
+[y]es / [n]o / [e]dit > e
+Modified command: docker exec openhands-gepa-demo ls -la /tmp/service.lock
+Executing modified command...
+```
+
+This keeps a human in the loop while preserving the same run/trace pipeline.
+
+## Executable Skills (Not Just Markdown)
+
+Some skills now include executable helpers alongside `SKILL.md`:
+
+- `.agents/skills/stale-lockfile/diagnose.py`
+- `.agents/skills/stale-lockfile/remediate.py`
+- `.agents/skills/readiness-probe-fail/diagnose.py`
+- `.agents/skills/readiness-probe-fail/remediate.py`
+
+These support a hybrid model where an agent can either:
+- follow runbook steps from markdown
+- call reusable remediation/diagnostic logic directly
+
 ## Easy Real Run Wrapper
 
 ```bash
@@ -182,51 +392,57 @@ uv run python scripts/start_demo.py --skip-build
 uv run python scripts/start_demo.py --simulate
 ```
 
-## Fan-Out Demos
+## Streamlined Surface
 
-Terminal fan-out:
+This repo now keeps a smaller active surface focused on:
+- `run_demo.py` for incident runs
+- `scripts/start_demo.py` for local target bring-up + execution
+- `scripts/import_itbench_sre.py` for pulling ITBench scenarios
+- `scripts/benchmark_itbench_sample.py` for low-cost dry-run baselines
+- `scripts/benchmark_itbench_real.py` for cost-controlled real-call samples
+- `scripts/fanout_itbench.py` for concurrent multi-incident execution
+- `scripts/fanout_isolated.py` for per-incident remote workspace isolation
+
+Removed from active surface:
+- web demo interface (`web_demo/`) has been removed
+- older demo/scorecard fanout scripts were retired in favor of ITBench-focused flows
+
+## Production Feature Checklist
+
+- Skills-first incident handling via OpenHands runtime
+- Real remote execution via `--remote-host` (agent-server)
+- Fan-out concurrency for multiple incidents
+- Per-incident isolation via separate remote workspaces
+- Security gates with risk thresholding and confirmation policy
+- Live intervention mode (`--interactive`) for approve/reject/edit
+- Stable post-run verifier gate for real calls
+- Laminar tracing + local JSONL trace logging
+- Optional optimizer lane retained as experimental, not primary
+
+## Recommended Extensions Now
+
+Highest-value next features for this demo:
+- `stuck detection` to break diagnostic loops automatically
+- `secret masking` to reduce credential leakage risk in logs/context
+- `pause/resume` to support operator handoff during incidents
+- `context condensation` to control token cost in long runs
+
+Optional observer feature:
+- `VNC/VSCode` is useful for live demos and training, but redundant for core benchmarking when you already have terminal logs + Laminar traces.
+- Keep it opt-in (not default) to avoid extra operational complexity.
+
+Observer mode example:
 
 ```bash
-uv run python scripts/fanout_live_demo.py --simulate --mode optimized --optimizer gepa --incidents 12 --concurrency 4
-```
-
-Continuous intake:
-
-```bash
-uv run python scripts/fanout_sre.py --simulate --continuous --duration-s 30 --arrival-rate 3 --concurrency 6 --optimizer iterative
-```
-
-Dashboard:
-
-```bash
-uv run python scripts/fanout_dashboard.py --simulate --incidents 12 --concurrency 4 --optimizer gepa
-```
-
-Web UI:
-
-```bash
-uv run python web_demo/app.py
-```
-
-Then open `http://127.0.0.1:8008`.
-
-## Remote Orchestrator + Worker Agents
-
-Production-style topology (orchestrator + multiple remote worker agent-servers):
-
-```bash
-uv run python scripts/fanout_orchestrated_remote.py \
+uv run python scripts/start_demo.py \
   --mode optimized \
-  --optimizer gepa \
-  --incidents 6 \
-  --concurrency 3
+  --scenario stale_lockfile \
+  --remote-host http://localhost:3000 \
+  --remote-working-dir /workspace/inc-001 \
+  --vnc
 ```
 
-Fast local smoke path:
-
-```bash
-uv run python scripts/fanout_orchestrated_remote.py --simulate --incidents 4 --concurrency 2
-```
+`--vnc` enables observer-mode messaging and prints the remote session context for live monitoring.
 
 ## Optional Optimizer Lane (GEPA/Iterative)
 
@@ -264,10 +480,11 @@ Override/disable:
 
 Rows include run metadata, scenario, skill, steps, risks, and verifier output.
 
-Build scorecards from traces:
+Quick trace summary:
 
 ```bash
-uv run python scripts/skill_scorecard.py --trace-log artifacts/runs/trace_log.jsonl
+jq -r '.scenario + \"\\t\" + (.service_up|tostring)' artifacts/runs/trace_log.jsonl \
+  | awk -F '\\t' '{k=$1; t[k]++; if($2==\"true\") s[k]++} END {for (k in t) printf \"%s\\truns=%d\\tsuccess=%.2f%%\\n\", k, t[k], (100*s[k]/t[k]) }'
 ```
 
 ## How to Evolve Toward Continual Learning
@@ -284,3 +501,50 @@ Recommended progression:
 ```bash
 uv run python -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+## Roadmap: Additional OpenHands Features to Integrate
+
+The following OpenHands capabilities could strengthen this demo further:
+
+### High Priority
+
+| Feature | Description | Implementation |
+|---------|-------------|----------------|
+| **Cost tracking** | Track tokens and USD per run | Add `input_tokens`, `output_tokens`, `cost_usd` to trace log |
+| **Skill leaderboard** | Aggregate trace metrics per skill | Script to summarize success rate, avg steps, avg cost |
+| **Side-by-side comparison** | Show with/without OpenHands features | `--compare` flag showing security, sandbox, verification |
+
+### Medium Priority
+
+| Feature | Description | Implementation |
+|---------|-------------|----------------|
+| **Multi-LLM routing** | Route diagnostics to cheap model, reasoning to expensive | Add `--router-llm` with cost-based routing |
+| **Stuck detection** | Break infinite loops automatically | Add `--stuck-detection --max-repeated-actions N` |
+| **Failure analysis** | Auto-analyze failed traces, suggest skill updates | Script to identify common failure patterns |
+| **Dual-agent mode** | Haiku student + Sonnet teacher for cost reduction | Add `--dual-agent --student-model --teacher-model` |
+
+### Lower Priority (Advanced)
+
+| Feature | Description | Implementation |
+|---------|-------------|----------------|
+| **Pause/resume** | Save state mid-execution for human review | Add `--pause-after-diagnosis` and `--resume-from` |
+| **Secret masking demo** | Show credential detection in action | Scenario with API key that gets auto-masked |
+| **MCP integration** | Add external tool servers (K8s, cloud) | Add `--mcp-server` flag for tool extension |
+| **Sub-agent delegation** | Spawn specialist agents for subtasks | Add NetworkDebugAgent, LogAnalysisAgent |
+| **Context condensation** | Enable summarizer for long incidents | Add `--condense-context` with cost comparison |
+
+### Production Hardening
+
+| Feature | Description | Implementation |
+|---------|-------------|----------------|
+| **Retry with backoff** | Resilient execution for transient failures | Already partial; extend with configurable backoff |
+| **Timeout budgets** | Per-step and total execution budgets | Add `--step-timeout-s` alongside `--run-timeout-s` |
+| **Audit logging** | Immutable audit trail for compliance | Write to append-only log with signatures |
+| **RBAC integration** | Role-based access for multi-user | Integrate with agent-server auth |
+
+## References
+
+- [OpenHands SDK Paper (arXiv:2511.03690)](https://arxiv.org/abs/2511.03690) - SDK architecture and differentiators
+- [OpenHands Platform Paper (arXiv:2407.16741)](https://arxiv.org/abs/2407.16741) - Platform design and benchmarks
+- [OpenHands Documentation](https://docs.openhands.dev) - Official docs
+- [OpenHands GitHub](https://github.com/All-Hands-AI/OpenHands) - Source code (MIT licensed)

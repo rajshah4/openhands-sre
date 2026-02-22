@@ -5,11 +5,6 @@
     "expected_first_checks": ["ls /tmp", "service.lock"]
   },
   {
-    "scenario_id": "bad_env_config",
-    "error_report": "bad_env_config: Service healthcheck fails due to missing env configuration.",
-    "expected_first_checks": ["printenv", "REQUIRED_API_KEY"]
-  },
-  {
     "scenario_id": "readiness_probe_fail",
     "error_report": "readiness_probe_fail: Service is up but readiness probe fails on startup.",
     "expected_first_checks": ["/tmp", "ready.flag"]
