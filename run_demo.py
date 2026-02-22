@@ -351,7 +351,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    run_id = args.run_id or f"run-{int(time.time())}"
+    run_id = args.run_id or f"run-{time.time_ns()}-{os.getpid()}"
 
     env_path = load_project_env(args.env_file)
     status = runtime_env_status()
