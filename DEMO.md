@@ -168,7 +168,17 @@ GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
 
 ### Demo Narrative
 
-> "Watch this: I create a GitHub issue describing an incident. OpenHands Cloud picks it up automatically - no human triggers it. The agent reads our runbooks, diagnoses the problem via the public URL, documents the fix, and opens a PR. Notice it can't push directly to main - branch protection requires a PR, so humans stay in control. In a self-hosted deployment, it would execute the fix directly."
+**Opening:**
+> "OpenHands can solve different types of problems. For **code bugs**, Cloud creates a PR - you merge it, CI/CD deploys the fix, done. But **operational issues** need direct access to your infrastructure. With self-hosted OpenHands inside your network, it can run commands, restart services, clear locks - whatever your SRE team would do."
+
+**During the demo:**
+> "Watch this: I create a GitHub issue describing an incident. OpenHands Cloud picks it up automatically - no human triggers it. The agent reads our runbooks, diagnoses the problem via the public URL, and documents the fix in a PR. Notice it can't push directly to main - branch protection requires a PR, so humans stay in control."
+
+**Before running the fix:**
+> "Cloud diagnosed the issue and documented the fix. For a code bug, we'd just merge the PR and we're done. But this is an operational issue - we need to run a command on the infrastructure. With self-hosted OpenHands, this happens automatically. Let me show you what that looks like..."
+
+**After running `./scripts/fix_demo.sh`:**
+> "And we're green. Cloud handles code fixes through PRs. Self-hosted goes further - it can actually run the commands to fix your infrastructure. That's what enterprises need."
 
 ---
 
