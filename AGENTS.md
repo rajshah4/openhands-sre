@@ -67,6 +67,9 @@ The following actions are ALWAYS HIGH risk and must NOT be executed without expl
 When responding to incidents, use this structure:
 
 ```
+## Skill Used
+[Name the skill from `.agents/skills/` that matches this incident, e.g., "stale-lockfile", "readiness-probe-fail"]
+
 ## Diagnosis
 [What you found]
 
@@ -79,3 +82,5 @@ When responding to incidents, use this structure:
 ## Verification
 [How you confirmed the fix worked]
 ```
+
+**Important**: Always identify which skill from `.agents/skills/` you are using and reference the runbook. This provides audit trail and traceability.
