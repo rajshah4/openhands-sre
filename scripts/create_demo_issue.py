@@ -27,7 +27,8 @@ REPO = "rajshah4/openhands-sre"
 
 # Tailscale Funnel URL - exposes local Docker container to the internet
 # This allows OpenHands Cloud to actually connect to and fix the service
-TARGET_BASE_URL = "https://macbook-pro.tail21d104.ts.net"
+# Set DEMO_TARGET_URL env var to override (each user has a unique Tailscale URL)
+TARGET_BASE_URL = os.getenv("DEMO_TARGET_URL", "http://localhost:15000")
 
 # Map scenarios to service endpoints (generic names don't reveal the issue)
 SCENARIO_ENDPOINTS = {

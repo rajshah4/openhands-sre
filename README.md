@@ -19,19 +19,27 @@ The security policy in `AGENTS.md` controls agent behavior based on risk level:
 
 ## Live Service Demo
 
-The target service shows **visual status pages** in the browser via Tailscale Funnel:
+The target service shows **visual status pages** in the browser:
 
 ```bash
-# Start broken service
-docker run -d -p 15000:5000 -e SCENARIO=stale_lockfile --name openhands-gepa-demo openhands-gepa-sre-target:latest
+# Run the setup script
+./scripts/setup_demo.sh
 
-# View in browser (red error page)
-open https://macbook-pro.tail21d104.ts.net/
+# View in browser (index page with all services)
+open http://localhost:15000/
 
-# Fix it
+# Break service1 and see red error page
+docker exec openhands-gepa-demo touch /tmp/service.lock
+open http://localhost:15000/service1
+
+# Fix it and see green success page
 docker exec openhands-gepa-demo rm -f /tmp/service.lock
+```
 
-# Refresh browser (green success page)
+For OpenHands Cloud integration, expose via Tailscale Funnel:
+```bash
+tailscale funnel 15000
+export DEMO_TARGET_URL=$(tailscale funnel status | grep https | awk '{print $1}')
 ```
 
 See [DEMO.md](DEMO.md) for full setup and all scenarios.

@@ -22,9 +22,19 @@ The target service shows **pretty HTML status pages** in the browser:
 
 ### Tailscale Funnel URL
 
-The local Docker container is exposed to the internet via Tailscale:
+The local Docker container can be exposed to the internet via Tailscale Funnel.
+Each user will have a unique URL based on their machine name and tailnet.
 
-**https://macbook-pro.tail21d104.ts.net/**
+```bash
+# Start Tailscale Funnel
+tailscale funnel 15000
+
+# Get your unique URL (looks like https://your-machine.tailnet.ts.net)
+tailscale funnel status
+
+# Export it for the demo scripts
+export DEMO_TARGET_URL=https://your-machine.tailnet.ts.net
+```
 
 ### Quick Visual Demo
 
@@ -35,8 +45,8 @@ The local Docker container is exposed to the internet via Tailscale:
 # 2. Break service1 (stale lockfile)
 docker exec openhands-gepa-demo touch /tmp/service.lock
 
-# 3. Open browser - see RED error page
-open https://macbook-pro.tail21d104.ts.net/service1
+# 3. Open browser - see RED error page (use your Tailscale URL or localhost)
+open http://localhost:15000/service1
 
 # 4. Fix it
 docker exec openhands-gepa-demo rm -f /tmp/service.lock
@@ -129,10 +139,10 @@ GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
 
    **Option B: Create manually in GitHub**
    - Go to https://github.com/rajshah4/openhands-sre/issues/new
-   - Title: `Service health check failing at /lockfile endpoint`
+   - Title: `Service health check failing at /service1 endpoint`
    - Body:
      ```
-     The health check at https://macbook-pro.tail21d104.ts.net/lockfile is returning HTTP 500.
+     The health check at <YOUR_TAILSCALE_URL>/service1 is returning HTTP 500.
      
      Please diagnose and fix following the security policy in AGENTS.md.
      ```
