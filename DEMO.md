@@ -94,6 +94,7 @@ GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
 2. `openhands` label created in GitHub repo
 3. OpenHands Cloud has access to the repository
 4. Tailscale Funnel running (for live service demo)
+5. Branch protection on `main` (agent must create PRs, can't push directly)
 
 ### How to Demo
 
@@ -139,7 +140,7 @@ GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
 
 ### Demo Narrative
 
-> "Watch this: I create a GitHub issue describing an incident. OpenHands Cloud picks it up automatically - no human triggers it. The agent reads our runbooks, diagnoses the problem via the public URL, documents the fix, and opens a PR. In a self-hosted deployment, it would execute the fix directly."
+> "Watch this: I create a GitHub issue describing an incident. OpenHands Cloud picks it up automatically - no human triggers it. The agent reads our runbooks, diagnoses the problem via the public URL, documents the fix, and opens a PR. Notice it can't push directly to main - branch protection requires a PR, so humans stay in control. In a self-hosted deployment, it would execute the fix directly."
 
 ---
 
