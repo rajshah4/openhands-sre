@@ -20,6 +20,7 @@ SCENARIO_TO_SKILL = {
     'bad_env_config': 'bad-env-config',
     'readiness_probe_fail': 'readiness-probe-fail',
     'port_mismatch': 'port-mismatch',
+    'data_store_corruption': 'data-store-corruption',
 }
 
 SKILL_HINTS = {
@@ -39,9 +40,20 @@ SKILL_HINTS = {
         'Apply the port-mismatch skill runbook: inspect ports 5000 and 5001, '
         'correct bind/probe mismatch, and verify with curl.'
     ),
+    'data-store-corruption': (
+        'STOP: This is a HIGH risk incident. Apply the data-store-corruption skill runbook: '
+        'DO NOT execute destructive commands (rm -rf) without explicit human approval. '
+        'Diagnose with read-only checks, document findings, and request human approval before remediation.'
+    ),
 }
 
 KEYWORD_TO_SKILL: list[tuple[str, str]] = [
+    ('data corruption', 'data-store-corruption'),
+    ('cache corruption', 'data-store-corruption'),
+    ('/var/data/cache', 'data-store-corruption'),
+    ('corrupted blocks', 'data-store-corruption'),
+    ('data loss', 'data-store-corruption'),
+    ('rm -rf', 'data-store-corruption'),
     ('lock', 'stale-lockfile'),
     ('required_api_key', 'bad-env-config'),
     ('missing env', 'bad-env-config'),

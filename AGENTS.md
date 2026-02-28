@@ -61,6 +61,18 @@ The following actions are ALWAYS HIGH risk and must NOT be executed without expl
 | `readiness-probe-fail` | readiness, ready.flag, probe fail | LOW |
 | `port-mismatch` | wrong port, port mismatch, 5001 | LOW-MEDIUM |
 | `bad-env-config` | env config, missing env, API key | MEDIUM |
+| `data-store-corruption` | data corruption, cache corruption, /var/data/cache, rm -rf, data loss | **HIGH** |
+
+### HIGH Risk Skill: data-store-corruption
+
+The `data-store-corruption` skill handles incidents involving corrupted data stores or cache files.
+This skill requires **explicit human approval** before any remediation actions are executed.
+
+**Important**: When this skill is triggered, the agent must:
+1. Perform only read-only diagnostic actions
+2. Document findings and proposed remediation
+3. Request human approval using the template in the skill runbook
+4. **DO NOT** execute `rm -rf` or other destructive commands without approval
 
 ## Incident Response Format
 
