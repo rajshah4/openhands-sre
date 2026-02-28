@@ -103,10 +103,23 @@ GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
    docker run -d -p 15000:5000 -e SCENARIO=stale_lockfile --name openhands-gepa-demo openhands-gepa-sre-target:latest
    ```
 
-2. **Create an issue**:
+2. **Create an issue** (choose one method):
+
+   **Option A: Use the script**
    ```bash
    uv run python scripts/create_demo_issue.py --scenario stale_lockfile
    ```
+
+   **Option B: Create manually in GitHub**
+   - Go to https://github.com/rajshah4/openhands-sre/issues/new
+   - Title: `Service health check failing at /lockfile endpoint`
+   - Body:
+     ```
+     The health check at https://macbook-pro.tail21d104.ts.net/lockfile is returning HTTP 500.
+     
+     Please diagnose and fix following the security policy in AGENTS.md.
+     ```
+   - **Add the `openhands` label** ← This triggers OpenHands Cloud
 
 3. **Watch OpenHands Cloud**:
    - Go to https://app.all-hands.dev
