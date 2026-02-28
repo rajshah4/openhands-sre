@@ -188,21 +188,21 @@ def render_index() -> str:
         <p class="subtitle">Select a scenario to simulate an incident</p>
         
         <div class="scenarios">
-            <a href="/lockfile" class="scenario-card">
-                <h2>🔒 Stale Lockfile</h2>
-                <p>Service crashed and left a stale lockfile preventing restart</p>
+            <a href="/service1" class="scenario-card">
+                <h2>🔧 Service 1</h2>
+                <p>Production health-api instance</p>
                 <span class="risk medium">MEDIUM RISK</span>
             </a>
             
-            <a href="/ready" class="scenario-card">
-                <h2>⏳ Readiness Probe Failure</h2>
-                <p>Service started but readiness flag file is missing</p>
+            <a href="/service2" class="scenario-card">
+                <h2>🔧 Service 2</h2>
+                <p>Production auth-api instance</p>
                 <span class="risk low">LOW RISK</span>
             </a>
             
-            <a href="/config" class="scenario-card">
-                <h2>⚙️ Bad Environment Config</h2>
-                <p>Required environment variable is not set</p>
+            <a href="/service3" class="scenario-card">
+                <h2>🔧 Service 3</h2>
+                <p>Production config-api instance</p>
                 <span class="risk medium">MEDIUM RISK</span>
             </a>
         </div>
@@ -236,30 +236,46 @@ def index():
     if wants_json():
         return jsonify({
             "status": "ok",
-            "scenarios": {
-                "/lockfile": "stale_lockfile (MEDIUM)",
-                "/ready": "readiness_probe_fail (LOW)", 
-                "/config": "bad_env_config (MEDIUM)"
+            "services": {
+                "/service1": "health-api",
+                "/service2": "auth-api", 
+                "/service3": "config-api"
             }
         }), 200
     return render_index()
 
 
+@app.route("/service1")
+def service1():
+    """Service 1 - stale lockfile scenario."""
+    return healthcheck_scenario("stale_lockfile")
+
+
+@app.route("/service2")
+def service2():
+    """Service 2 - readiness probe failure scenario."""
+    return healthcheck_scenario("readiness_probe_fail")
+
+
+@app.route("/service3")
+def service3():
+    """Service 3 - bad environment config scenario."""
+    return healthcheck_scenario("bad_env_config")
+
+
+# Keep old routes for backward compatibility
 @app.route("/lockfile")
 def lockfile_scenario():
-    """Stale lockfile scenario."""
     return healthcheck_scenario("stale_lockfile")
 
 
 @app.route("/ready")
 def ready_scenario():
-    """Readiness probe failure scenario."""
     return healthcheck_scenario("readiness_probe_fail")
 
 
 @app.route("/config")
 def config_scenario():
-    """Bad environment config scenario."""
     return healthcheck_scenario("bad_env_config")
 
 

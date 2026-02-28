@@ -27,7 +27,14 @@ REPO = "rajshah4/openhands-sre"
 
 # Tailscale Funnel URL - exposes local Docker container to the internet
 # This allows OpenHands Cloud to actually connect to and fix the service
-TARGET_URL = "https://macbook-pro.tail21d104.ts.net"
+TARGET_BASE_URL = "https://macbook-pro.tail21d104.ts.net"
+
+# Map scenarios to service endpoints (generic names don't reveal the issue)
+SCENARIO_ENDPOINTS = {
+    "stale_lockfile": "/service1",
+    "readiness_probe_fail": "/service2",
+    "corrupted_data_store": "/service1",  # Uses same endpoint, different issue
+}
 
 SCENARIOS = {
     "stale_lockfile": {
@@ -148,9 +155,11 @@ def create_issue(scenario: str, add_label: bool, dry_run: bool) -> None:
 
     config = SCENARIOS[scenario]
     title = config["title"]
+    endpoint = SCENARIO_ENDPOINTS.get(scenario, "/service1")
+    target_url = f"{TARGET_BASE_URL}{endpoint}"
     body = config["body"].format(
         timestamp=datetime.now().isoformat(),
-        target_url=TARGET_URL
+        target_url=target_url
     )
 
     print(f"{'[DRY RUN] ' if dry_run else ''}Creating issue in {REPO}")

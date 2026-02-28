@@ -29,18 +29,34 @@ The local Docker container is exposed to the internet via Tailscale:
 ### Quick Visual Demo
 
 ```bash
-# 1. Start broken service (stale lockfile)
-docker rm -f openhands-gepa-demo
-docker run -d -p 15000:5000 -e SCENARIO=stale_lockfile --name openhands-gepa-demo openhands-gepa-sre-target:latest
+# 1. Run setup script
+./scripts/setup_demo.sh
 
-# 2. Open browser - see RED error page
-open https://macbook-pro.tail21d104.ts.net/
+# 2. Break service1 (stale lockfile)
+docker exec openhands-gepa-demo touch /tmp/service.lock
 
-# 3. Fix it
+# 3. Open browser - see RED error page
+open https://macbook-pro.tail21d104.ts.net/service1
+
+# 4. Fix it
 docker exec openhands-gepa-demo rm -f /tmp/service.lock
 
-# 4. Refresh browser - see GREEN success page
+# 5. Refresh browser - see GREEN success page
 ```
+
+### Quick Setup
+
+Run the setup script to build and start everything:
+
+```bash
+./scripts/setup_demo.sh
+```
+
+This will:
+- Build the Docker image
+- Start the container on port 15000
+- Check Tailscale status
+- Print all the URLs and commands you need
 
 ### Multi-Scenario Mode (Recommended)
 
@@ -53,9 +69,9 @@ docker run -d -p 15000:5000 --name openhands-gepa-demo openhands-gepa-sre-target
 | Path | Scenario | Break Command | Fix Command |
 |------|----------|---------------|-------------|
 | `/` | Index page | - | - |
-| `/lockfile` | stale_lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `docker exec openhands-gepa-demo rm -f /tmp/service.lock` |
-| `/ready` | readiness_probe_fail | (broken by default) | `docker exec openhands-gepa-demo touch /tmp/ready.flag` |
-| `/config` | bad_env_config | (broken by default) | Restart with `-e REQUIRED_API_KEY=xxx` |
+| `/service1` | stale_lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `docker exec openhands-gepa-demo rm -f /tmp/service.lock` |
+| `/service2` | readiness_probe_fail | (broken by default) | `docker exec openhands-gepa-demo touch /tmp/ready.flag` |
+| `/service3` | bad_env_config | (broken by default) | Restart with `-e REQUIRED_API_KEY=xxx` |
 
 ### Single-Scenario Mode (Legacy)
 
