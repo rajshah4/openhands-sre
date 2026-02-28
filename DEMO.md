@@ -79,9 +79,9 @@ docker run -d -p 15000:5000 --name openhands-gepa-demo openhands-gepa-sre-target
 | Path | Scenario | Break Command | Fix Command |
 |------|----------|---------------|-------------|
 | `/` | Index page | - | - |
-| `/service1` | stale_lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `docker exec openhands-gepa-demo rm -f /tmp/service.lock` |
-| `/service2` | readiness_probe_fail | (broken by default) | `docker exec openhands-gepa-demo touch /tmp/ready.flag` |
-| `/service3` | bad_env_config | (broken by default) | Restart with `-e REQUIRED_API_KEY=xxx` |
+| `/service1` | stale_lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `./scripts/fix_demo.sh service1` |
+| `/service2` | readiness_probe_fail | (broken by default) | `./scripts/fix_demo.sh service2` |
+| `/service3` | bad_env_config | (broken by default) | `./scripts/fix_demo.sh service3` |
 
 ### Single-Scenario Mode (Legacy)
 
@@ -158,11 +158,13 @@ GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
    - PR is created with fix + tests
    - PR links back to the issue
 
-5. **Manually verify the fix** (since Cloud can't docker exec):
+5. **Execute the fix** (simulates what self-hosted OpenHands would do):
    ```bash
-   docker exec openhands-gepa-demo rm -f /tmp/service.lock
+   ./scripts/fix_demo.sh service1
    ```
    Refresh browser - green success page!
+   
+   > *Demo narrative: "In self-hosted, the agent executes this automatically. Let me show you what that looks like..."*
 
 ### Demo Narrative
 

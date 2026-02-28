@@ -116,6 +116,6 @@ fi
 echo ""
 echo "Quick commands:"
 echo "  Break service1: docker exec openhands-gepa-demo touch /tmp/service.lock"
-echo "  Fix service1:   docker exec openhands-gepa-demo rm -f /tmp/service.lock"
-echo "  Fix service2:   docker exec openhands-gepa-demo touch /tmp/ready.flag"
+echo "  Fix service1:   ./scripts/fix_demo.sh service1"
+echo "  Fix service2:   ./scripts/fix_demo.sh service2"
 echo ""
