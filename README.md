@@ -126,38 +126,6 @@ uv sync
 docker build -t openhands-gepa-sre-target:latest target_service
 ```
 
-## Main Demo (Skills-First)
-
-Simulation run:
-
-```bash
-uv run python run_demo.py \
-  --mode optimized \
-  --strategy-source skills \
-  --scenario stale_lockfile \
-  --simulate
-```
-
-Real run:
-
-```bash
-uv run python run_demo.py \
-  --mode optimized \
-  --strategy-source skills \
-  --scenario stale_lockfile
-```
-
-Force a specific skill:
-
-```bash
-uv run python run_demo.py \
-  --mode optimized \
-  --strategy-source skills \
-  --skill-id port-mismatch \
-  --scenario port_mismatch \
-  --simulate
-```
-
 ## Strategy Sources
 
 `run_demo.py` supports three strategy sources in optimized mode:
@@ -316,41 +284,9 @@ uv run python run_demo.py \
 - `--max-security-risk {LOW|MEDIUM|HIGH}`
 - `--require-confirmation-for-risk {LOW|MEDIUM|HIGH}`
 - `--auto-confirm`
+- `--interactive` for human-in-the-loop approval
 
-Security-gates demo (safe simulation):
-
-```bash
-uv run python scripts/start_demo.py --demo-security-gates
-```
-
-This demonstrates:
-- blocking a `HIGH` risk action when `max_security_risk=MEDIUM`
-- confirmation-required behavior for `MEDIUM+` risk
-- auto-approve behavior with `--auto-confirm`
-
-## Live Intervention Mode
-
-Use `--interactive` to pause before execution and approve, reject, or edit a proposed remediation command.
-
-```bash
-uv run python scripts/start_demo.py \
-  --mode optimized \
-  --scenario stale_lockfile \
-  --interactive \
-  --allow-local-workspace
-```
-
-Example flow:
-
-```text
-Agent proposes: docker exec openhands-gepa-demo rm -f /tmp/service.lock
-
-[y]es / [n]o / [e]dit > e
-Modified command: docker exec openhands-gepa-demo ls -la /tmp/service.lock
-Executing modified command...
-```
-
-This keeps a human in the loop while preserving the same run/trace pipeline.
+See [DEMO.md](DEMO.md) for security gates demonstration.
 
 ## Executable Skills (Not Just Markdown)
 
