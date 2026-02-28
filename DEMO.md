@@ -42,13 +42,29 @@ docker exec openhands-gepa-demo rm -f /tmp/service.lock
 # 4. Refresh browser - see GREEN success page
 ```
 
-### Available Scenarios
+### Multi-Scenario Mode (Recommended)
 
-| Scenario | Start Command | Fix Command | Browser Shows |
-|----------|---------------|-------------|---------------|
-| `stale_lockfile` | `-e SCENARIO=stale_lockfile` | `docker exec openhands-gepa-demo rm -f /tmp/service.lock` | "Service Unavailable" → "Service Running" |
-| `readiness_probe_fail` | `-e SCENARIO=readiness_probe_fail` | `docker exec openhands-gepa-demo touch /tmp/ready.flag` | "Not Ready" → "Service Ready" |
-| `bad_env_config` | `-e SCENARIO=bad_env_config` | Restart with `-e REQUIRED_API_KEY=xxx` | "Configuration Error" → "Service Running" |
+Run **without** the SCENARIO env var to get all scenarios at different paths:
+
+```bash
+docker run -d -p 15000:5000 --name openhands-gepa-demo openhands-gepa-sre-target:latest
+```
+
+| Path | Scenario | Break Command | Fix Command |
+|------|----------|---------------|-------------|
+| `/` | Index page | - | - |
+| `/lockfile` | stale_lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `docker exec openhands-gepa-demo rm -f /tmp/service.lock` |
+| `/ready` | readiness_probe_fail | (broken by default) | `docker exec openhands-gepa-demo touch /tmp/ready.flag` |
+| `/config` | bad_env_config | (broken by default) | Restart with `-e REQUIRED_API_KEY=xxx` |
+
+### Single-Scenario Mode (Legacy)
+
+Run with SCENARIO env var to get one scenario at `/`:
+
+| Scenario | Start Command | Fix Command |
+|----------|---------------|-------------|
+| `stale_lockfile` | `-e SCENARIO=stale_lockfile` | `docker exec openhands-gepa-demo rm -f /tmp/service.lock` |
+| `readiness_probe_fail` | `-e SCENARIO=readiness_probe_fail` | `docker exec openhands-gepa-demo touch /tmp/ready.flag` |
 
 ### Tailscale Setup (One-Time)
 

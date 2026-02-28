@@ -4,13 +4,17 @@ import os
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
+
+# State files for each scenario
 LOCKFILE = "/tmp/service.lock"
 READY_FILE = "/tmp/ready.flag"
 REQUIRED_ENV = "REQUIRED_API_KEY"
-SCENARIO = os.getenv("SCENARIO", "stale_lockfile")
+
+# Legacy support for single-scenario mode
+SCENARIO = os.getenv("SCENARIO", "")
 
 
-def render_html(status: str, title: str, message: str, details: str = "") -> str:
+def render_html(status: str, title: str, message: str, details: str = "", scenario: str = "") -> str:
     """Render a nice HTML status page."""
     if status == "ok":
         bg_color = "#10b981"  # green
@@ -91,7 +95,119 @@ def render_html(status: str, title: str, message: str, details: str = "") -> str
         <h1>{title}</h1>
         <p class="message">{message}</p>
         {f'<div class="details">{details}</div>' if details else ''}
-        <p class="scenario">Scenario: {SCENARIO}</p>
+        <p class="scenario">Scenario: {scenario}</p>
+    </div>
+</body>
+</html>'''
+
+
+def render_index() -> str:
+    """Render the index page with links to all scenarios."""
+    return '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenHands SRE Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 80px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            max-width: 700px;
+        }
+        h1 {
+            font-size: 36px;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 40px;
+        }
+        .scenarios {
+            display: grid;
+            gap: 20px;
+        }
+        .scenario-card {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: left;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 2px solid transparent;
+        }
+        .scenario-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border-color: #667eea;
+        }
+        .scenario-card h2 {
+            font-size: 20px;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+        .scenario-card p {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+        .risk {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .risk.medium { background: #fef3c7; color: #d97706; }
+        .risk.low { background: #d1fae5; color: #059669; }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 OpenHands SRE Demo</h1>
+        <p class="subtitle">Select a scenario to simulate an incident</p>
+        
+        <div class="scenarios">
+            <a href="/lockfile" class="scenario-card">
+                <h2>🔒 Stale Lockfile</h2>
+                <p>Service crashed and left a stale lockfile preventing restart</p>
+                <span class="risk medium">MEDIUM RISK</span>
+            </a>
+            
+            <a href="/ready" class="scenario-card">
+                <h2>⏳ Readiness Probe Failure</h2>
+                <p>Service started but readiness flag file is missing</p>
+                <span class="risk low">LOW RISK</span>
+            </a>
+            
+            <a href="/config" class="scenario-card">
+                <h2>⚙️ Bad Environment Config</h2>
+                <p>Required environment variable is not set</p>
+                <span class="risk medium">MEDIUM RISK</span>
+            </a>
+        </div>
+        
+        <p class="footer">Each scenario can be broken and fixed independently</p>
     </div>
 </body>
 </html>'''
@@ -101,7 +217,6 @@ def wants_json() -> bool:
     """Check if client wants JSON (curl, API) vs HTML (browser)."""
     accept = request.headers.get('Accept', '')
     user_agent = request.headers.get('User-Agent', '').lower()
-    # curl and most CLI tools don't send Accept: text/html
     if 'text/html' in accept and 'curl' not in user_agent:
         return False
     if 'application/json' in accept:
@@ -112,8 +227,45 @@ def wants_json() -> bool:
 
 
 @app.route("/")
-def healthcheck():
-    if SCENARIO == "stale_lockfile":
+def index():
+    """Index page - show all scenarios or legacy single-scenario mode."""
+    if SCENARIO:
+        # Legacy mode: single scenario via env var
+        return healthcheck_scenario(SCENARIO)
+    # Multi-scenario mode: show index
+    if wants_json():
+        return jsonify({
+            "status": "ok",
+            "scenarios": {
+                "/lockfile": "stale_lockfile (MEDIUM)",
+                "/ready": "readiness_probe_fail (LOW)", 
+                "/config": "bad_env_config (MEDIUM)"
+            }
+        }), 200
+    return render_index()
+
+
+@app.route("/lockfile")
+def lockfile_scenario():
+    """Stale lockfile scenario."""
+    return healthcheck_scenario("stale_lockfile")
+
+
+@app.route("/ready")
+def ready_scenario():
+    """Readiness probe failure scenario."""
+    return healthcheck_scenario("readiness_probe_fail")
+
+
+@app.route("/config")
+def config_scenario():
+    """Bad environment config scenario."""
+    return healthcheck_scenario("bad_env_config")
+
+
+def healthcheck_scenario(scenario: str):
+    """Check health for a specific scenario."""
+    if scenario == "stale_lockfile":
         if os.path.exists(LOCKFILE):
             if wants_json():
                 return jsonify({"status": "error", "reason": f"stale lockfile present at {LOCKFILE}"}), 500
@@ -121,17 +273,19 @@ def healthcheck():
                 "error",
                 "Service Unavailable",
                 "The service failed to start due to a stale lockfile from a previous crash.",
-                f"🔒 Lockfile: {LOCKFILE}"
+                f"🔒 Lockfile: {LOCKFILE}",
+                scenario
             ), 500
         if wants_json():
-            return jsonify({"status": "ok", "scenario": SCENARIO}), 200
+            return jsonify({"status": "ok", "scenario": scenario}), 200
         return render_html(
             "ok",
             "Service Running",
             "All systems operational. The health-api is responding normally.",
+            scenario=scenario
         ), 200
 
-    if SCENARIO == "bad_env_config":
+    if scenario == "bad_env_config":
         if not os.getenv(REQUIRED_ENV):
             if wants_json():
                 return jsonify({"status": "error", "reason": f"missing required env {REQUIRED_ENV}"}), 500
@@ -139,13 +293,14 @@ def healthcheck():
                 "error",
                 "Configuration Error",
                 "Required environment variable is not set.",
-                f"Missing: {REQUIRED_ENV}"
+                f"Missing: {REQUIRED_ENV}",
+                scenario
             ), 500
         if wants_json():
-            return jsonify({"status": "ok", "scenario": SCENARIO}), 200
-        return render_html("ok", "Service Running", "Configuration loaded successfully.")
+            return jsonify({"status": "ok", "scenario": scenario}), 200
+        return render_html("ok", "Service Running", "Configuration loaded successfully.", scenario=scenario)
 
-    if SCENARIO == "readiness_probe_fail":
+    if scenario == "readiness_probe_fail":
         if not os.path.exists(READY_FILE):
             if wants_json():
                 return jsonify({"status": "error", "reason": f"missing readiness file {READY_FILE}"}), 500
@@ -153,20 +308,16 @@ def healthcheck():
                 "error",
                 "Not Ready",
                 "The service is starting but not yet ready to accept traffic.",
-                f"Waiting for: {READY_FILE}"
+                f"Waiting for: {READY_FILE}",
+                scenario
             ), 500
         if wants_json():
-            return jsonify({"status": "ok", "scenario": SCENARIO}), 200
-        return render_html("ok", "Service Ready", "Readiness probe passing. Service is ready for traffic.")
-
-    if SCENARIO == "port_mismatch":
-        if wants_json():
-            return jsonify({"status": "ok", "scenario": SCENARIO, "note": "service listens on non-default port"}), 200
-        return render_html("ok", "Service Running", "Service is running on a non-default port.")
+            return jsonify({"status": "ok", "scenario": scenario}), 200
+        return render_html("ok", "Service Ready", "Readiness probe passing. Service is ready for traffic.", scenario=scenario)
 
     if wants_json():
-        return jsonify({"status": "error", "reason": f"unknown scenario {SCENARIO}"}), 500
-    return render_html("error", "Unknown Error", f"Unknown scenario: {SCENARIO}")
+        return jsonify({"status": "error", "reason": f"unknown scenario {scenario}"}), 500
+    return render_html("error", "Unknown Error", f"Unknown scenario: {scenario}", scenario=scenario)
 
 
 if __name__ == "__main__":
