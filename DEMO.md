@@ -14,6 +14,54 @@ This guide covers all demo scenarios for showcasing OpenHands Cloud + GitHub int
 
 ---
 
+## Part 0: Live Service Demo (Visual Before/After)
+
+The target service shows **pretty HTML status pages** in the browser:
+- **Broken**: Red page with ❌ icon and error details
+- **Fixed**: Green page with ✅ icon and success message
+
+### Tailscale Funnel URL
+
+The local Docker container is exposed to the internet via Tailscale:
+
+**https://macbook-pro.tail21d104.ts.net/**
+
+### Quick Visual Demo
+
+```bash
+# 1. Start broken service (stale lockfile)
+docker rm -f openhands-gepa-demo
+docker run -d -p 15000:5000 -e SCENARIO=stale_lockfile --name openhands-gepa-demo openhands-gepa-sre-target:latest
+
+# 2. Open browser - see RED error page
+open https://macbook-pro.tail21d104.ts.net/
+
+# 3. Fix it
+docker exec openhands-gepa-demo rm -f /tmp/service.lock
+
+# 4. Refresh browser - see GREEN success page
+```
+
+### Available Scenarios
+
+| Scenario | Start Command | Fix Command | Browser Shows |
+|----------|---------------|-------------|---------------|
+| `stale_lockfile` | `-e SCENARIO=stale_lockfile` | `docker exec openhands-gepa-demo rm -f /tmp/service.lock` | "Service Unavailable" → "Service Running" |
+| `readiness_probe_fail` | `-e SCENARIO=readiness_probe_fail` | `docker exec openhands-gepa-demo touch /tmp/ready.flag` | "Not Ready" → "Service Ready" |
+| `bad_env_config` | `-e SCENARIO=bad_env_config` | Restart with `-e REQUIRED_API_KEY=xxx` | "Configuration Error" → "Service Running" |
+
+### Tailscale Setup (One-Time)
+
+```bash
+# Start Tailscale and enable Funnel
+tailscale up
+tailscale funnel 15000
+```
+
+**Note**: Your Mac must be on for the Tailscale Funnel to work.
+
+---
+
 ## Part 1: OpenHands Cloud + GitHub Integration
 
 ### The Outer Loop Story
@@ -29,27 +77,40 @@ GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
 1. Repository connected to OpenHands Cloud
 2. `openhands` label created in GitHub repo
 3. OpenHands Cloud has access to the repository
+4. Tailscale Funnel running (for live service demo)
 
 ### How to Demo
 
-1. **Create an issue**:
+1. **Start broken service** (browser shows red error page):
+   ```bash
+   docker rm -f openhands-gepa-demo
+   docker run -d -p 15000:5000 -e SCENARIO=stale_lockfile --name openhands-gepa-demo openhands-gepa-sre-target:latest
+   ```
+
+2. **Create an issue**:
    ```bash
    uv run python scripts/create_demo_issue.py --scenario stale_lockfile
    ```
 
-2. **Watch OpenHands Cloud**:
+3. **Watch OpenHands Cloud**:
    - Go to https://app.all-hands.dev
    - See the conversation start automatically
-   - Watch the agent diagnose and fix
+   - Agent curls the Tailscale URL and sees the error
 
-3. **Check GitHub**:
+4. **Check GitHub**:
    - Issue gets a comment from `@openhands-ai`
    - PR is created with fix + tests
    - PR links back to the issue
 
+5. **Manually verify the fix** (since Cloud can't docker exec):
+   ```bash
+   docker exec openhands-gepa-demo rm -f /tmp/service.lock
+   ```
+   Refresh browser - green success page!
+
 ### Demo Narrative
 
-> "Watch this: I create a GitHub issue describing an incident. OpenHands Cloud picks it up automatically - no human triggers it. The agent reads our runbooks, diagnoses the problem, fixes it, writes tests, and opens a PR. All I do is review and merge."
+> "Watch this: I create a GitHub issue describing an incident. OpenHands Cloud picks it up automatically - no human triggers it. The agent reads our runbooks, diagnoses the problem via the public URL, documents the fix, and opens a PR. In a self-hosted deployment, it would execute the fix directly."
 
 ---
 

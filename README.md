@@ -17,6 +17,25 @@ The security policy in `AGENTS.md` controls agent behavior based on risk level:
 - **MEDIUM risk**: Execute with risk reporting (removing temp files)
 - **HIGH risk**: Stop and request human approval (destructive actions)
 
+## Live Service Demo
+
+The target service shows **visual status pages** in the browser via Tailscale Funnel:
+
+```bash
+# Start broken service
+docker run -d -p 15000:5000 -e SCENARIO=stale_lockfile --name openhands-gepa-demo openhands-gepa-sre-target:latest
+
+# View in browser (red error page)
+open https://macbook-pro.tail21d104.ts.net/
+
+# Fix it
+docker exec openhands-gepa-demo rm -f /tmp/service.lock
+
+# Refresh browser (green success page)
+```
+
+See [DEMO.md](DEMO.md) for full setup and all scenarios.
+
 ---
 
 Core idea:
