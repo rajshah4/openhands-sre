@@ -25,6 +25,10 @@ from datetime import datetime
 
 REPO = "rajshah4/openhands-sre"
 
+# Tailscale Funnel URL - exposes local Docker container to the internet
+# This allows OpenHands Cloud to actually connect to and fix the service
+TARGET_URL = "https://macbook-pro.tail21d104.ts.net"
+
 SCENARIOS = {
     "stale_lockfile": {
         "title": "🚨 Incident: Service returning HTTP 500 - stale lockfile suspected",
@@ -53,7 +57,7 @@ Service should return HTTP 200 with healthy status.
 
 ### Environment
 - Container: `openhands-gepa-demo`
-- Target URL: `http://127.0.0.1:15000`
+- Target URL: `{target_url}`
 
 ---
 
@@ -86,7 +90,7 @@ Service should create readiness flag and return HTTP 200.
 
 ### Environment
 - Container: `openhands-gepa-demo`
-- Target URL: `http://127.0.0.1:15000`
+- Target URL: `{target_url}`
 
 ---
 
@@ -125,7 +129,7 @@ Service should create readiness flag and return HTTP 200.
 
 ### Environment
 - Container: `openhands-gepa-demo`
-- Target URL: `http://127.0.0.1:15000`
+- Target URL: `{target_url}`
 - Data Store: `/var/data/`
 
 ---
@@ -144,7 +148,10 @@ def create_issue(scenario: str, add_label: bool, dry_run: bool) -> None:
 
     config = SCENARIOS[scenario]
     title = config["title"]
-    body = config["body"].format(timestamp=datetime.now().isoformat())
+    body = config["body"].format(
+        timestamp=datetime.now().isoformat(),
+        target_url=TARGET_URL
+    )
 
     print(f"{'[DRY RUN] ' if dry_run else ''}Creating issue in {REPO}")
     print(f"  Title: {title}")
