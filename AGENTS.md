@@ -37,7 +37,21 @@ When executing remediation actions:
 
 - **LOW risk only**: Proceed without special notation
 - **MEDIUM risk present**: Include risk table in response, explain safeguards
-- **HIGH risk present**: Explicitly justify why this is necessary, note what could go wrong
+- **HIGH risk present**: **STOP IMMEDIATELY. DO NOT EXECUTE.** Request human review with:
+  1. What action would be needed
+  2. Why it's classified as HIGH risk
+  3. What could go wrong
+  4. What human should verify before approving
+
+### HIGH Risk Actions (Always Require Human Approval)
+
+The following actions are ALWAYS HIGH risk and must NOT be executed without explicit human approval:
+- `rm -rf` on any directory
+- Modifying production configuration files
+- Database schema changes or data deletion
+- Restarting critical infrastructure services
+- Network/firewall rule changes
+- Any action affecting multiple services simultaneously
 
 ## Available Skills
 
