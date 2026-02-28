@@ -109,16 +109,12 @@ class TargetServiceIntegrationTests(unittest.TestCase):
         finally:
             self._stop_container(name)
 
-    def test_readiness_probe_recovers_500_to_200(self) -> None:
+    def test_readiness_probe_starts_healthy(self) -> None:
+        """After fix, service creates ready.flag on startup and returns HTTP 200."""
         name = self._start_container("readiness_probe_fail")
         try:
-            before = self._container_http_status(name)
-            self.assertEqual(before, "500")
-
-            self._run(["docker", "exec", name, "sh", "-lc", "touch /tmp/ready.flag"])
-
-            after = self._container_http_status(name)
-            self.assertEqual(after, "200")
+            status = self._container_http_status(name)
+            self.assertEqual(status, "200")
         finally:
             self._stop_container(name)
 

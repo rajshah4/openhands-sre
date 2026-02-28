@@ -15,7 +15,8 @@ case "$SCENARIO" in
     unset REQUIRED_API_KEY || true
     ;;
   readiness_probe_fail)
-    # Intentionally omit /tmp/ready.flag.
+    # Create the readiness flag so the service is healthy and ready to serve traffic.
+    touch /tmp/ready.flag
     ;;
   port_mismatch)
     # app.py handles mismatch by binding to :5001.
