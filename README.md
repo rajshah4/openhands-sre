@@ -1,6 +1,23 @@
 # OpenHands SRE Skills Demo
 
-This repository demonstrates a **skills-first SRE agent** built with the OpenHands SDK.
+This repository demonstrates a **skills-first SRE agent** built with the OpenHands SDK, with full integration to **OpenHands Cloud** and **GitHub** for autonomous incident remediation.
+
+> **For demo instructions, see [DEMO.md](DEMO.md)**
+
+## OpenHands Cloud Integration
+
+Create a GitHub issue with the `openhands` label and watch the agent automatically diagnose, fix, and open a PR:
+
+```bash
+uv run python scripts/create_demo_issue.py --scenario stale_lockfile
+```
+
+The security policy in `AGENTS.md` controls agent behavior based on risk level:
+- **LOW risk**: Auto-execute (health checks, reading files)
+- **MEDIUM risk**: Execute with risk reporting (removing temp files)
+- **HIGH risk**: Stop and request human approval (destructive actions)
+
+---
 
 Core idea:
 - OpenHands is the execution runtime (terminal + file editing in sandboxed workspaces).
