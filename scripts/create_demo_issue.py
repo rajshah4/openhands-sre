@@ -28,11 +28,13 @@ REPO = "rajshah4/openhands-sre"
 SCENARIOS = {
     "stale_lockfile": {
         "title": "🚨 Incident: Service returning HTTP 500 - stale lockfile suspected",
+        "risk_level": "MEDIUM",
         "body": """## Incident Report
 
 **Service**: health-api
 **Status**: HTTP 500 Internal Server Error
 **Time Detected**: {timestamp}
+**Expected Risk Level**: MEDIUM (requires file deletion)
 
 ### Symptoms
 - Health endpoint returning 500 status code
@@ -55,16 +57,18 @@ Service should return HTTP 200 with healthy status.
 
 ---
 
-**Please diagnose and remediate this incident using the appropriate SRE skill.**
+**Please diagnose and remediate this incident following the security policy in AGENTS.md.**
 """,
     },
     "readiness_probe_fail": {
         "title": "🚨 Incident: Readiness probe failing - service not ready",
+        "risk_level": "LOW",
         "body": """## Incident Report
 
 **Service**: health-api  
 **Status**: HTTP 500 - Readiness probe failure
 **Time Detected**: {timestamp}
+**Expected Risk Level**: LOW (read-only diagnosis + file creation)
 
 ### Symptoms
 - Readiness probe returning 500 status
@@ -86,7 +90,7 @@ Service should create readiness flag and return HTTP 200.
 
 ---
 
-**Please diagnose and remediate this incident using the appropriate SRE skill.**
+**Please diagnose and remediate this incident following the security policy in AGENTS.md.**
 """,
     },
 }
