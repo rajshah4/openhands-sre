@@ -11,6 +11,45 @@ Demonstrates **OpenHands Cloud** integration with **GitHub** for autonomous inci
 3. **PR with Documentation** - Agent creates PR with diagnosis, risk assessment, and fix
 4. **Security Policy** - Agent follows rules in `AGENTS.md` based on risk level
 
+## OpenHands Features Highlighted
+
+This demo showcases key OpenHands capabilities:
+
+| Feature | How It's Used | Why It Matters |
+|---------|---------------|----------------|
+| **GitHub Integration** | Issues with `openhands` label auto-trigger agents | Zero-touch incident response |
+| **Skills System** | `.agents/skills/` contains runbooks + executable code | Auditable, version-controlled remediation |
+| **Security Policies** | `AGENTS.md` defines LOW/MEDIUM/HIGH risk rules | Governance at scale |
+| **Branch Protection** | Agent creates PRs, can't push to main | Human stays in control |
+| **Cloud + Self-Hosted** | Cloud for code fixes, self-hosted for infrastructure | Flexible deployment |
+
+### Skills: More Than Just Documentation
+
+Skills in `.agents/skills/` can include:
+- **Markdown runbooks** (`SKILL.md`) - Human-readable, auditable steps
+- **Executable code** (`diagnose.py`, `remediate.py`) - Reusable, testable automation
+- **Python modules** (`skill.py`) - Import and run programmatically
+
+```
+.agents/skills/stale-lockfile/
+├── SKILL.md        # Runbook the agent follows
+├── diagnose.py     # Executable diagnosis script
+├── remediate.py    # Executable remediation script
+└── skill.py        # Python module interface
+```
+
+### Security: Risk-Based Execution
+
+The agent classifies every action by risk level:
+
+| Risk | Examples | Agent Behavior |
+|------|----------|----------------|
+| **LOW** | `curl`, `cat`, health checks | Execute immediately |
+| **MEDIUM** | `rm -f /tmp/file`, restart service | Execute with justification |
+| **HIGH** | `rm -rf`, config changes | **STOP** and request approval |
+
+This is defined in `AGENTS.md` - fully customizable per repository.
+
 ## Quick Start
 
 ```bash
