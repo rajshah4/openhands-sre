@@ -138,7 +138,7 @@ GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
    ```
 
    **Option B: Create manually in GitHub**
-   - Go to https://github.com/rajshah4/openhands-sre/issues/new
+   - Go to your repo's Issues page and create a new issue
    - Title: `Service health check failing at /service1 endpoint`
    - Body:
      ```

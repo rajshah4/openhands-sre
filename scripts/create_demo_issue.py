@@ -14,7 +14,7 @@ Usage:
 
 Requirements:
     - gh CLI installed and authenticated
-    - Repository: rajshah4/openhands-sre
+    - Run from within a git repository connected to GitHub
 """
 
 import argparse
@@ -24,7 +24,29 @@ import sys
 from datetime import datetime
 
 
-REPO = "rajshah4/openhands-sre"
+def get_repo_from_git() -> str:
+    """Auto-detect the GitHub repo from git remote."""
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        url = result.stdout.strip()
+        # Handle SSH format: git@github.com:owner/repo.git
+        if url.startswith("git@github.com:"):
+            return url.replace("git@github.com:", "").replace(".git", "")
+        # Handle HTTPS format: https://github.com/owner/repo.git
+        if "github.com" in url:
+            return url.split("github.com/")[-1].replace(".git", "")
+        raise ValueError(f"Could not parse GitHub repo from: {url}")
+    except subprocess.CalledProcessError:
+        raise ValueError("Not in a git repository or no remote configured")
+
+
+# Auto-detect repo or use GITHUB_REPO env var
+REPO = os.getenv("GITHUB_REPO") or get_repo_from_git()
 
 # Tailscale Funnel URL - exposes local Docker container to the internet
 # This allows OpenHands Cloud to actually connect to and fix the service
