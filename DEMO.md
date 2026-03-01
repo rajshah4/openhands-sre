@@ -9,8 +9,7 @@ This guide covers all demo scenarios for showcasing OpenHands Cloud + GitHub int
 | LOW Risk | `uv run python scripts/create_demo_issue.py --scenario readiness_probe_fail` | Auto-fix, minimal reporting |
 | MEDIUM Risk | `uv run python scripts/create_demo_issue.py --scenario stale_lockfile` | Fix with risk justifications |
 | HIGH Risk | `uv run python scripts/create_demo_issue.py --scenario corrupted_data_store` | STOP, request human approval (no execution) |
-| Security Gates | `uv run python scripts/start_demo.py --demo-security-gates` | Policy enforcement simulation |
-| Local Remediation | `uv run python scripts/start_demo.py --mode optimized --scenario stale_lockfile --allow-local-workspace` | Live Docker fix |
+| Manual Fix | `./scripts/fix_demo.sh service1` | Simulates self-hosted remediation |
 
 ---
 
@@ -254,35 +253,7 @@ uv run python scripts/create_demo_issue.py --scenario corrupted_data_store
 
 ---
 
-## Part 3: Security Gates Simulation (Local)
-
-### Command
-
-```bash
-uv run python scripts/start_demo.py --demo-security-gates
-```
-
-### What It Shows
-
-Three policy configurations tested against two actions:
-
-| Action | Risk | max_security_risk=MEDIUM | require_confirmation=MEDIUM | auto_confirm=True |
-|--------|------|--------------------------|-----------------------------|--------------------|
-| `rm -rf /tmp/*` | HIGH | BLOCKED | BLOCKED | ALLOWED |
-| `rm -f /tmp/service.lock` | LOW | ALLOWED | ALLOWED | ALLOWED |
-
-### Demo Narrative
-
-> "Every action the agent takes is security-classified. Enterprise admins can set policies:
-> - Block dangerous actions entirely
-> - Require human approval for risky operations  
-> - Auto-approve for trusted workflows
-> 
-> This is what an Agent Control Plane gives you - governance at scale."
-
----
-
-## Part 4: Scale Demo (Multiple Issues)
+## Part 3: Scale Demo (Multiple Issues)
 
 ### Create Multiple Issues
 
@@ -301,56 +272,6 @@ uv run python scripts/create_demo_issue.py --scenario stale_lockfile
 ### Demo Narrative
 
 > "In production, this handles hundreds of incidents. Same skills. Same policies. Same audit trail. That's the Agent Control Plane."
-
----
-
-## Part 5: Local Live Remediation
-
-### Setup
-
-```bash
-# Build the target service
-docker build -t openhands-gepa-sre-target:latest target_service
-```
-
-### Run
-
-```bash
-uv run python scripts/start_demo.py \
-  --mode optimized \
-  --scenario stale_lockfile \
-  --allow-local-workspace
-```
-
-### What It Shows
-
-- Real Docker container with broken service
-- Agent actually fixes it
-- HTTP 500 becomes HTTP 200
-
-### When to Use
-
-- When you need to prove the agent can fix real things
-- When Cloud/GitHub integration is not available
-- For deep-dive technical audience
-
----
-
-## Observability
-
-### Local Traces
-
-Every run logs structured traces:
-
-```bash
-cat artifacts/runs/trace_log.jsonl | tail -1 | jq '{security_risks, max_security_risk_seen}'
-```
-
-### Laminar Integration
-
-Set `LMNR_PROJECT_API_KEY` in environment or OpenHands Cloud secrets.
-
-**Note**: OpenHands Cloud may have network restrictions on port 8443 to `api.lmnr.ai`. For full observability, use local demos.
 
 ---
 

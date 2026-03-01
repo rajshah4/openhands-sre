@@ -76,6 +76,7 @@ The `AGENTS.md` file controls agent behavior:
 ## Requirements
 
 - Docker
+- [GitHub CLI (`gh`)](https://cli.github.com/) - installed and authenticated
 - GitHub repo connected to OpenHands Cloud
 - Tailscale Funnel (for public URL exposure)
 
