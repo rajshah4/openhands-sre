@@ -8,7 +8,7 @@ This guide covers all demo scenarios for showcasing OpenHands Cloud + GitHub int
 |------|---------|-------|
 | LOW Risk | `uv run python scripts/create_demo_issue.py --scenario readiness_probe_fail` | Auto-fix, minimal reporting |
 | MEDIUM Risk | `uv run python scripts/create_demo_issue.py --scenario stale_lockfile` | Fix with risk justifications |
-| HIGH Risk | `uv run python scripts/create_demo_issue.py --scenario corrupted_data_store` | STOP, request human approval |
+| HIGH Risk | `uv run python scripts/create_demo_issue.py --scenario corrupted_data_store` | STOP, request human approval (no execution) |
 | Security Gates | `uv run python scripts/start_demo.py --demo-security-gates` | Policy enforcement simulation |
 | Local Remediation | `uv run python scripts/start_demo.py --mode optimized --scenario stale_lockfile --allow-local-workspace` | Live Docker fix |
 
@@ -231,7 +231,7 @@ uv run python scripts/create_demo_issue.py --scenario stale_lockfile
 **Demo Narrative**:
 > "Notice how the agent reports the security risk level for each action. For MEDIUM risk, it explains why the action is safe - removing a temp file, not production data."
 
-### Demo Scenario: HIGH Risk
+### Demo Scenario: HIGH Risk (Human-Only)
 
 **Command**:
 ```bash
@@ -241,16 +241,16 @@ uv run python scripts/create_demo_issue.py --scenario corrupted_data_store
 **What happens**:
 - Agent recognizes `rm -rf` would be needed (HIGH risk)
 - Agent **STOPS** - does not execute destructive commands
-- Creates a skill with human approval template
-- PR includes approval workflow
+- Agent requests human approval with a clear checklist
+- No automated remediation is performed
 
 **What to show**:
 - Agent did NOT execute `rm -rf`
-- Created structured approval request
-- Human must approve before remediation
+- Human approval is required before any remediation
+- This is a governance demo (policy enforcement), not automation
 
 **Demo Narrative**:
-> "This is the critical difference. The agent recognizes this would require `rm -rf` - a HIGH risk action. Instead of executing it, the agent STOPS and creates an approval request. No destructive action without human consent."
+> "This is the critical difference. The agent recognizes this would require `rm -rf` - a HIGH risk action. Instead of executing it, the agent STOPS and asks for human approval. No destructive action without human consent."
 
 ---
 
@@ -359,24 +359,24 @@ Set `LMNR_PROJECT_API_KEY` in environment or OpenHands Cloud secrets.
 ### Opening (30 sec)
 > "Let me show you the Agent Control Plane for SRE."
 
-### Part 1: Outer Loop (2 min)
+### Part 1: Cloud Agents + GitHub (2 min)
 ```bash
 uv run python scripts/create_demo_issue.py --scenario stale_lockfile
 ```
-> "GitHub issue to OpenHands Cloud to PR. Fully autonomous."
+> "GitHub issue to OpenHands Cloud to PR. Fully autonomous for code fixes."
 
 Show: Issue comment, Cloud conversation, PR created
 
-### Part 2: Security Policy (2 min)
+### Part 2: Human Approval for High Risk (2 min)
 ```bash
 uv run python scripts/create_demo_issue.py --scenario corrupted_data_store
 ```
-> "But what about dangerous actions?"
+> "Now a HIGH risk incident. The agent identifies the risk and stops for human approval. No destructive actions are executed."
 
-Show: Agent STOPPED, approval request created
+Show: Agent STOPPED, approval request, explicit human-only remediation
 
 ### Part 3: Scale Story (30 sec)
-> "This same setup handles 100s of incidents per month. Same skills. Same policies. Same audit trail."
+> "Same policies, same audit trail, at enterprise scale."
 
 ### Closing
 > "Questions?"
