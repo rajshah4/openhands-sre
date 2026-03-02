@@ -13,18 +13,25 @@ Expose with: tailscale funnel 8080
 """
 
 import json
+import os
 import subprocess
 import sys
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 # Lock down to only this container
 CONTAINER_NAME = "openhands-gepa-demo"
 LOCAL_URL = "http://127.0.0.1:15000"
 PORT = 8080
 
-mcp = FastMCP("sre-demo")
+# Disable DNS rebinding protection to allow Tailscale Funnel access
+transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=False
+)
+
+mcp = FastMCP("sre-demo", transport_security=transport_security)
 
 
 def _run_in_container(cmd: list[str]) -> dict[str, Any]:
@@ -234,6 +241,8 @@ if __name__ == "__main__":
     print("  - get_all_service_status")
     print()
     
-    # Get the ASGI app from FastMCP
+    # Get the ASGI app from FastMCP and run directly
+    # Note: FastMCP's DNS rebinding protection may reject non-localhost hosts
+    # The middleware approach had timing issues with SSE, so running direct
     app = mcp.sse_app()
     uvicorn.run(app, host="0.0.0.0", port=PORT)
