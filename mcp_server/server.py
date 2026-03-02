@@ -16,10 +16,17 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+
+
+def _log_tool(name: str):
+    """Log MCP tool invocation with timestamp."""
+    ts = datetime.now().strftime("%H:%M:%S")
+    print(f">>> [{ts}] MCP TOOL CALLED: {name}", flush=True)
 
 # Lock down to only this container
 CONTAINER_NAME = "openhands-gepa-demo"
@@ -70,7 +77,7 @@ def diagnose_service1() -> str:
     Diagnose service1 (stale lockfile scenario).
     Checks if /tmp/service.lock exists and the HTTP status.
     """
-    print(">>> MCP TOOL CALLED: diagnose_service1", flush=True)
+    _log_tool("diagnose_service1")
     lock_check = _run_in_container(["ls", "-la", "/tmp/service.lock"])
     http_check = _check_service("/service1")
     
@@ -95,6 +102,7 @@ def diagnose_service2() -> str:
     Diagnose service2 (readiness probe scenario).
     Checks if /tmp/ready.flag exists and the HTTP status.
     """
+    _log_tool("diagnose_service2")
     flag_check = _run_in_container(["ls", "-la", "/tmp/ready.flag"])
     http_check = _check_service("/service2")
     
@@ -119,6 +127,7 @@ def diagnose_service3() -> str:
     Diagnose service3 (bad env config scenario).
     Checks if REQUIRED_API_KEY is set and the HTTP status.
     """
+    _log_tool("diagnose_service3")
     env_check = _run_in_container(["sh", "-c", "echo $REQUIRED_API_KEY"])
     http_check = _check_service("/service3")
     
@@ -142,7 +151,7 @@ def fix_service1() -> str:
     Fix service1 by removing the stale lockfile.
     Risk level: MEDIUM (removes a temp file)
     """
-    print(">>> MCP TOOL CALLED: fix_service1", flush=True)
+    _log_tool("fix_service1")
     # Pre-check
     pre_http = _check_service("/service1")
     
@@ -171,6 +180,7 @@ def fix_service2() -> str:
     Fix service2 by creating the readiness flag.
     Risk level: LOW (creates a flag file)
     """
+    _log_tool("fix_service2")
     # Pre-check
     pre_http = _check_service("/service2")
     
@@ -202,6 +212,7 @@ def fix_service3() -> str:
     NOTE: This cannot be done from inside the container. 
     Returns instructions for the operator to restart the container.
     """
+    _log_tool("fix_service3")
     pre_http = _check_service("/service3")
     
     result = {
@@ -227,6 +238,7 @@ def get_all_service_status() -> str:
     Get the current HTTP status of all services.
     Quick health check without detailed diagnosis.
     """
+    _log_tool("get_all_service_status")
     result = {
         "service1": _check_service("/service1"),
         "service2": _check_service("/service2"),
