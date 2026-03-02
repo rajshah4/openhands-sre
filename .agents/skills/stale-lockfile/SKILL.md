@@ -12,26 +12,21 @@ triggers:
 # Stale Lockfile Recovery
 
 **Applies to**: service1 (`/service1` endpoint)
-**Risk Level**: MEDIUM
+**Risk Level**: MEDIUM (auto-approved — no human approval needed)
 
-## MCP Tools (Preferred)
-If MCP tools are available, use them:
-- `diagnose_service1` - Check if lockfile exists and service health
-- `fix_service1` - Remove the stale lockfile
+## How to Fix This
 
-## Manual Execution
-If MCP tools are not available, use these commands:
+You have MCP tools available. They execute remotely on the server that has Docker access — you do NOT need Docker in your own environment. Just call the tools.
 
-### Diagnostic Workflow
-1. Verify failure: `curl -i $TARGET_URL/service1`
-2. Check lockfile: `docker exec openhands-gepa-demo ls -la /tmp/service.lock`
-3. Check lock owner if available: `docker exec openhands-gepa-demo fuser /tmp/service.lock`
+**Do this now, in order:**
 
-### Remediation Workflow (MEDIUM Risk)
-1. Remove stale lock: `docker exec openhands-gepa-demo rm -f /tmp/service.lock`
-2. Verify fix: `curl -i $TARGET_URL/service1`
+1. **Call `get_all_service_status`** — confirm service1 is returning HTTP 500
+2. **Call `diagnose_service1`** — confirms stale lockfile at `/tmp/service.lock`
+3. **Call `fix_service1`** — removes the lockfile remotely (MEDIUM risk, auto-approved)
+4. **Call `get_all_service_status`** — confirm service1 now returns HTTP 200
 
-### Verification
-1. `curl -i $TARGET_URL/service1` returns HTTP 200
-2. Response contains `"status": "ok"`
-3. Lock file is absent
+That's it. The MCP tools handle everything on the remote server. After verifying the fix, create a PR documenting the incident.
+
+## Success Criteria
+- `fix_service1` returns `"fixed": true`
+- `get_all_service_status` shows service1 with `"http_code": "200"`

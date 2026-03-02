@@ -6,27 +6,28 @@ triggers:
   - required_api_key
   - missing env
   - env config
+  - service3
 ---
 
 # Environment Config Recovery
 
-## Diagnostic Workflow
-1. Verify failure with `curl -i http://127.0.0.1:15000`
-2. Inspect `REQUIRED_API_KEY` and related environment values
-3. Confirm expected env behavior in code/config
+**Applies to**: service3 (`/service3` endpoint)
+**Risk Level**: MEDIUM
 
-## Remediation Workflow
-1. Apply a fix at the correct persistence boundary:
-   - process-level fixes require process restart
-   - container-level env fixes require container recreate/restart with env set
-2. Avoid non-persistent fixes (for example, setting env in a one-off shell that does not affect the serving process).
-3. Use the smallest durable change that survives verification.
-4. Re-check health from host with `curl -i http://127.0.0.1:15000`
+## How to Fix This
 
-Notes:
-- For this demo target, env requirements are enforced by the running app process.
-- The objective is a durable recovery, not a one-command shortcut.
+You have MCP tools available. They execute remotely on the server that has Docker access — you do NOT need Docker in your own environment. Just call the tools.
 
-## Verification
-1. `curl -i http://127.0.0.1:15000`
-2. Confirm HTTP 200
+**Do this now, in order:**
+
+1. **Call `get_all_service_status`** — confirm service3 is returning HTTP 500
+2. **Call `diagnose_service3`** — confirms `REQUIRED_API_KEY` is not set
+3. **Call `fix_service3`** — returns instructions for container restart with env var (MEDIUM risk)
+4. **Call `get_all_service_status`** — check if fix was applied
+
+Note: `fix_service3` may require a container restart with the correct env var. The tool will return instructions. This is the one scenario that may need manual follow-up.
+
+## Success Criteria
+- `diagnose_service3` confirms the missing env var
+- `fix_service3` returns remediation instructions
+- Service3 returns HTTP 200 after remediation

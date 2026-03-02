@@ -12,25 +12,21 @@ triggers:
 # Readiness Probe Recovery
 
 **Applies to**: service2 (`/service2` endpoint)
-**Risk Level**: LOW
+**Risk Level**: LOW (auto-approved)
 
-## MCP Tools (Preferred)
-If MCP tools are available, use them:
-- `diagnose_service2` - Check if ready flag exists and service health
-- `fix_service2` - Create the readiness flag
+## How to Fix This
 
-## Manual Execution
-If MCP tools are not available, use these commands:
+You have MCP tools available. They execute remotely on the server that has Docker access — you do NOT need Docker in your own environment. Just call the tools.
 
-### Diagnostic Workflow
-1. Verify failure: `curl -i $TARGET_URL/service2`
-2. Check ready flag: `docker exec openhands-gepa-demo ls -la /tmp/ready.flag`
+**Do this now, in order:**
 
-### Remediation Workflow (LOW Risk)
-1. Create ready flag: `docker exec openhands-gepa-demo touch /tmp/ready.flag`
-2. Verify fix: `curl -i $TARGET_URL/service2`
+1. **Call `get_all_service_status`** — confirm service2 is returning HTTP 500
+2. **Call `diagnose_service2`** — confirms `/tmp/ready.flag` is missing
+3. **Call `fix_service2`** — creates the readiness flag remotely (LOW risk)
+4. **Call `get_all_service_status`** — confirm service2 now returns HTTP 200
 
-### Verification
-1. `curl -i $TARGET_URL/service2` returns HTTP 200
-2. Response contains `"status": "ok"`
-3. Ready flag exists
+That's it. The MCP tools handle everything on the remote server. After verifying the fix, create a PR documenting the incident.
+
+## Success Criteria
+- `fix_service2` returns `"fixed": true`
+- `get_all_service_status` shows service2 with `"http_code": "200"`

@@ -55,30 +55,38 @@ The following actions are ALWAYS HIGH risk and must NOT be executed without expl
 
 ## MCP Tools (Infrastructure Execution)
 
-**⚠️ CRITICAL: When MCP tools are available, you MUST use them to execute real fixes on live infrastructure. Do NOT just document fixes — actually call the fix tools.**
+**⚠️ CRITICAL: You MUST call the MCP fix tools to actually fix broken services. Do NOT just write documentation — the service will stay broken.**
 
-The MCP tools execute commands inside the demo Docker container. They are the primary way to diagnose and remediate incidents:
+### How MCP Tools Work
 
-| Tool | Description | Risk Level |
-|------|-------------|------------|
-| `get_all_service_status` | Quick health check of all services | LOW |
-| `diagnose_service1` | Diagnose stale lockfile issue | LOW |
-| `diagnose_service2` | Diagnose readiness probe issue | LOW |
-| `diagnose_service3` | Diagnose env config issue | LOW |
-| `fix_service1` | Remove `/tmp/service.lock` | MEDIUM |
-| `fix_service2` | Create `/tmp/ready.flag` | LOW |
-| `fix_service3` | Returns instructions (needs restart) | MEDIUM |
+MCP tools execute **remotely on the MCP server**, which has Docker access to the demo container. You do NOT need Docker, container access, or shell commands in your environment. You just call the tool by name and it runs on the server.
 
-### Required Workflow for Incidents
+**Think of MCP tools like API calls** — you call `fix_service1` and the server removes the lockfile for you. You never touch Docker yourself.
 
-When an incident issue mentions MCP tools, follow this exact sequence:
+### Available Tools
 
-1. **Diagnose** — Call the appropriate `diagnose_serviceN` tool
-2. **Fix** — Call the appropriate `fix_serviceN` tool to execute the remediation
-3. **Verify** — Call `get_all_service_status` or `diagnose_serviceN` again to confirm the fix worked
-4. **Document** — Create a PR with the incident report and risk assessment
+| Tool | What it does remotely | Risk Level |
+|------|----------------------|------------|
+| `get_all_service_status` | Checks HTTP status of all 3 services | LOW |
+| `diagnose_service1` | Checks if `/tmp/service.lock` exists | LOW |
+| `diagnose_service2` | Checks if `/tmp/ready.flag` exists | LOW |
+| `diagnose_service3` | Checks if `REQUIRED_API_KEY` is set | LOW |
+| `fix_service1` | Removes `/tmp/service.lock` on the server | MEDIUM (auto-approved) |
+| `fix_service2` | Creates `/tmp/ready.flag` on the server | LOW (auto-approved) |
+| `fix_service3` | Returns restart instructions | MEDIUM |
 
-**Do NOT skip step 2.** The fix tools are MEDIUM risk at most and are auto-approved per the security policy above. Documenting a fix without executing it leaves the service broken.
+### Required Workflow
+
+For every incident, do these 4 steps **in order**:
+
+1. **`get_all_service_status`** — see which services are broken
+2. **`diagnose_serviceN`** — confirm the root cause
+3. **`fix_serviceN`** — **execute the fix** (this is the critical step — do NOT skip it)
+4. **`get_all_service_status`** — verify the service now returns HTTP 200
+
+Only after step 4 confirms the fix, create a PR documenting what happened.
+
+**If you skip step 3, the service stays broken and the incident is not resolved.**
 
 ## Available Skills
 
