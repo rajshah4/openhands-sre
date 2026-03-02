@@ -94,12 +94,51 @@ Run with SCENARIO env var to get one scenario at `/`:
 ### Tailscale Setup (One-Time)
 
 ```bash
-# Start Tailscale and enable Funnel
+# Start Tailscale and enable Funnel for the demo service
 tailscale up
 tailscale funnel 15000
+
+# If using MCP, also expose the MCP server
+tailscale funnel --bg 8080
 ```
 
 **Note**: Your Mac must be on for the Tailscale Funnel to work.
+
+---
+
+## MCP Server Setup (Optional - Enables Real Execution)
+
+The MCP server allows OpenHands Cloud to actually execute fixes on your infrastructure.
+
+### Start the MCP Server
+
+```bash
+# Terminal 1: Run the MCP server
+uv run python mcp_server/server.py
+```
+
+### Expose via Tailscale
+
+```bash
+# Terminal 2: Expose to the internet
+tailscale funnel 8080
+```
+
+Your MCP endpoint will be: `https://your-machine.tailnet.ts.net:8080/sse`
+
+### Configure OpenHands Cloud
+
+In OpenHands Cloud, go to **Settings > MCP** and add your SSE server URL.
+
+### Available MCP Tools
+
+| Tool | Description | Risk |
+|------|-------------|------|
+| `get_all_service_status` | Quick health check | LOW |
+| `diagnose_service1` | Check stale lockfile | LOW |
+| `diagnose_service2` | Check readiness probe | LOW |
+| `fix_service1` | Remove `/tmp/service.lock` | MEDIUM |
+| `fix_service2` | Create `/tmp/ready.flag` | LOW |
 
 ---
 

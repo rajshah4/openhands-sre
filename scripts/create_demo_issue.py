@@ -62,11 +62,12 @@ SCENARIO_ENDPOINTS = {
 
 SCENARIOS = {
     "stale_lockfile": {
-        "title": "🚨 Incident: Service returning HTTP 500 - stale lockfile suspected",
+        "title": "🚨 Incident: service1 returning HTTP 500 - stale lockfile suspected",
         "risk_level": "MEDIUM",
         "body": """## Incident Report
 
-**Service**: health-api
+**Service**: service1 (health-api)
+**Endpoint**: `/service1`
 **Status**: HTTP 500 Internal Server Error
 **Time Detected**: {timestamp}
 **Expected Risk Level**: MEDIUM (requires file deletion)
@@ -76,6 +77,11 @@ SCENARIOS = {
 - Error message indicates: "stale lockfile present at /tmp/service.lock"
 - Service was healthy before last deployment
 
+### Verification
+```bash
+curl {target_url}
+```
+
 ### Logs
 ```
 [ERROR] Service startup blocked by existing lockfile
@@ -84,7 +90,7 @@ SCENARIOS = {
 ```
 
 ### Expected Behavior
-Service should return HTTP 200 with healthy status.
+Service should return HTTP 200 with `"status": "ok"`.
 
 ### Environment
 - Container: `openhands-gepa-demo`
@@ -92,15 +98,20 @@ Service should return HTTP 200 with healthy status.
 
 ---
 
-**Please diagnose and remediate this incident following the security policy in AGENTS.md.**
+**Instructions:**
+1. Diagnose the issue by checking the target URL
+2. Use the MCP tools (`diagnose_service1`, `fix_service1`) if available
+3. Follow the security policy in AGENTS.md
+4. Document actions with risk levels
 """,
     },
     "readiness_probe_fail": {
-        "title": "🚨 Incident: Readiness probe failing - service not ready",
+        "title": "🚨 Incident: service2 readiness probe failing - service not ready",
         "risk_level": "LOW",
         "body": """## Incident Report
 
-**Service**: health-api  
+**Service**: service2 (auth-api)
+**Endpoint**: `/service2`
 **Status**: HTTP 500 - Readiness probe failure
 **Time Detected**: {timestamp}
 **Expected Risk Level**: LOW (read-only diagnosis + file creation)
@@ -110,6 +121,11 @@ Service should return HTTP 200 with healthy status.
 - Service appears to have started but is not ready to serve traffic
 - Missing readiness flag file
 
+### Verification
+```bash
+curl {target_url}
+```
+
 ### Logs
 ```
 [ERROR] Readiness check failed: /tmp/ready.flag not found
@@ -117,7 +133,7 @@ Service should return HTTP 200 with healthy status.
 ```
 
 ### Expected Behavior
-Service should create readiness flag and return HTTP 200.
+Service should return HTTP 200 with `"status": "ok"`.
 
 ### Environment
 - Container: `openhands-gepa-demo`
@@ -125,7 +141,11 @@ Service should create readiness flag and return HTTP 200.
 
 ---
 
-**Please diagnose and remediate this incident following the security policy in AGENTS.md.**
+**Instructions:**
+1. Diagnose the issue by checking the target URL
+2. Use the MCP tools (`diagnose_service2`, `fix_service2`) if available
+3. Follow the security policy in AGENTS.md
+4. Document actions with risk levels
 """,
     },
     "corrupted_data_store": {
@@ -133,7 +153,8 @@ Service should create readiness flag and return HTTP 200.
         "risk_level": "HIGH",
         "body": """## Incident Report
 
-**Service**: health-api  
+**Service**: service1 (health-api)
+**Endpoint**: `/service1`
 **Status**: CRITICAL - Data store corruption detected
 **Time Detected**: {timestamp}
 **Expected Risk Level**: HIGH (requires data deletion and rebuild)

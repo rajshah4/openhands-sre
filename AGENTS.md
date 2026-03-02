@@ -53,6 +53,22 @@ The following actions are ALWAYS HIGH risk and must NOT be executed without expl
 - Network/firewall rule changes
 - Any action affecting multiple services simultaneously
 
+## MCP Tools (Infrastructure Execution)
+
+If MCP tools are available, use them for diagnosis and remediation:
+
+| Tool | Description | Risk Level |
+|------|-------------|------------|
+| `get_all_service_status` | Quick health check of all services | LOW |
+| `diagnose_service1` | Diagnose stale lockfile issue | LOW |
+| `diagnose_service2` | Diagnose readiness probe issue | LOW |
+| `diagnose_service3` | Diagnose env config issue | LOW |
+| `fix_service1` | Remove `/tmp/service.lock` | MEDIUM |
+| `fix_service2` | Create `/tmp/ready.flag` | LOW |
+| `fix_service3` | Returns instructions (needs restart) | MEDIUM |
+
+**Prefer MCP tools over manual shell commands when available.** MCP tools are locked down to the demo container and provide structured responses.
+
 ## Available Skills
 
 | Skill | Trigger Keywords | Risk Level |

@@ -6,33 +6,31 @@ triggers:
   - readiness
   - ready.flag
   - probe fail
+  - service2
 ---
 
 # Readiness Probe Recovery
 
-## Execution Modes
-- Manual runbook: follow the shell steps below.
-- Executable helper path: run the skill code directly.
+**Applies to**: service2 (`/service2` endpoint)
+**Risk Level**: LOW
 
-Skill helper files:
-- `diagnose.py`
-- `remediate.py`
-- `skill.py` (exports `diagnose` and `remediate`)
+## MCP Tools (Preferred)
+If MCP tools are available, use them:
+- `diagnose_service2` - Check if ready flag exists and service health
+- `fix_service2` - Create the readiness flag
 
-Examples:
-- `TARGET_URL=http://127.0.0.1:15000 TARGET_CONTAINER=openhands-gepa-demo python .agents/skills/readiness-probe-fail/diagnose.py`
-- `TARGET_URL=http://127.0.0.1:15000 TARGET_CONTAINER=openhands-gepa-demo python .agents/skills/readiness-probe-fail/remediate.py`
-- `cd .agents/skills/readiness-probe-fail && python -c "from skill import diagnose, remediate; print(diagnose()); print(remediate())"`
+## Manual Execution
+If MCP tools are not available, use these commands:
 
-## Diagnostic Workflow
-1. Verify failure with `curl -i http://127.0.0.1:15000`
-2. Check readiness artifacts (e.g., `/tmp/ready.flag`)
-3. Confirm readiness conditions in service code
+### Diagnostic Workflow
+1. Verify failure: `curl -i $TARGET_URL/service2`
+2. Check ready flag: `docker exec openhands-gepa-demo ls -la /tmp/ready.flag`
 
-## Remediation Workflow
-1. Restore required readiness artifact/state
-2. Restart only if readiness is initialized at boot
+### Remediation Workflow (LOW Risk)
+1. Create ready flag: `docker exec openhands-gepa-demo touch /tmp/ready.flag`
+2. Verify fix: `curl -i $TARGET_URL/service2`
 
-## Verification
-1. `curl -i http://127.0.0.1:15000`
-2. Confirm HTTP 200 and healthy readiness signal
+### Verification
+1. `curl -i $TARGET_URL/service2` returns HTTP 200
+2. Response contains `"status": "ok"`
+3. Ready flag exists
