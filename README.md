@@ -10,10 +10,11 @@ The scenarios in this demo are based on [ITBench](https://github.com/itbench-hub
 
 ## What This Demo Shows
 
-1. **GitHub Issue → Automatic Agent** - Create an issue with `openhands` label, agent picks it up
-2. **Live Service Diagnosis** - Agent curls a real broken service via public URL
-3. **PR with Documentation** - Agent creates PR with diagnosis, risk assessment, and fix
-4. **Security Policy** - Agent follows rules in `AGENTS.md` based on risk level
+1. **GitHub Issue → Automatic Agent** — Create an issue with `openhands` label, agent picks it up
+2. **MCP-Based Remediation** — Agent calls remote MCP tools to diagnose and fix live services
+3. **Verified Fix** — Agent confirms the service returns HTTP 200 before documenting
+4. **PR with Documentation** — Agent creates PR with diagnosis, risk assessment, and MCP tool outputs
+5. **Security Policy** — Agent follows risk-level rules in `AGENTS.md` (LOW/MEDIUM auto-approved, HIGH requires human)
 
 ## OpenHands Features Highlighted
 
@@ -22,10 +23,10 @@ This demo showcases key OpenHands capabilities:
 | Feature | How It's Used | Why It Matters |
 |---------|---------------|----------------|
 | **GitHub Integration** | Issues with `openhands` label auto-trigger agents | Zero-touch incident response |
-| **Skills System** | `.agents/skills/` contains runbooks + executable code | Auditable, version-controlled remediation |
+| **MCP Tools** | Agent calls remote diagnose/fix tools via MCP server | Live infrastructure remediation from Cloud |
+| **Skills System** | `.agents/skills/` contains runbooks with MCP tool sequences | Auditable, version-controlled remediation |
 | **Security Policies** | `AGENTS.md` defines LOW/MEDIUM/HIGH risk rules | Governance at scale |
 | **Branch Protection** | Agent creates PRs, can't push to main | Human stays in control |
-| **Cloud + Self-Hosted** | Cloud for code fixes, self-hosted for infrastructure | Flexible deployment |
 
 ### Skills: More Than Just Documentation
 
@@ -60,51 +61,63 @@ This is defined in `AGENTS.md` - fully customizable per repository.
 # 1. Setup the demo environment
 ./scripts/setup_demo.sh
 
-# 2. Break service1
-docker exec openhands-gepa-demo touch /tmp/service.lock
+# 2. Start the MCP server (bridges Cloud to local Docker)
+uv run python mcp_server/server.py
 
-# 3. Create an issue (triggers OpenHands Cloud)
+# 3. Expose via Tailscale Funnel
+tailscale funnel --set-path / 15000     # demo service
+tailscale funnel --set-path /mcp 8080   # MCP server
+
+# 4. Configure OpenHands Cloud with your MCP URL:
+#    https://your-machine.tailnet.ts.net/mcp
+
+# 5. Break a service and create an issue
+docker exec openhands-gepa-demo touch /tmp/service.lock
 export DEMO_TARGET_URL=https://your-machine.tailnet.ts.net
 uv run python scripts/create_demo_issue.py --scenario stale_lockfile
 
-# 4. Watch OpenHands Cloud diagnose and create PR
-# https://app.all-hands.dev
-
-# 5. Execute the fix (simulates self-hosted)
-./scripts/fix_demo.sh service1
+# 6. Watch OpenHands Cloud fix it live via MCP tools
+#    https://app.all-hands.dev
 ```
 
-## Demo Narrative
+### Verify MCP Pipeline
 
-**Code bugs** → Cloud creates a PR, you merge it, CI/CD deploys. Done.
-
-**Operational issues** → Need direct infrastructure access. Self-hosted OpenHands runs commands directly.
-
-> "Cloud handles code fixes through PRs. Self-hosted goes further - it can actually run the commands to fix your infrastructure. That's what enterprises need."
+```bash
+# Test agent runs diagnose → fix → verify for all broken services
+uv run python scripts/test_mcp_agent.py
+uv run python scripts/test_mcp_agent.py --url https://your-machine.tailnet.ts.net/mcp
+```
 
 ## Repository Layout
 
 ```
 openhands-sre/
-├── .agents/skills/      # Incident runbooks (SKILL.md per scenario)
-├── target_service/      # Docker service with breakable scenarios
+├── .agents/skills/           # Incident runbooks with MCP tool sequences
+│   ├── stale-lockfile/       #   service1: rm lockfile
+│   ├── readiness-probe-fail/ #   service2: create ready flag
+│   ├── bad-env-config/       #   service3: env var fix
+│   └── port-mismatch/        #   port binding issues
+├── mcp_server/
+│   └── server.py             # MCP server (streamable HTTP + SSE)
+├── target_service/           # Docker service with breakable scenarios
 ├── scripts/
-│   ├── setup_demo.sh    # Setup script
+│   ├── setup_demo.sh         # Setup Docker + Tailscale
 │   ├── create_demo_issue.py  # Create GitHub issues
-│   └── fix_demo.sh      # Execute fixes (simulates self-hosted)
-├── tests/               # Integration tests
-├── AGENTS.md            # Security policy for OpenHands
-├── DEMO.md              # Full demo instructions
+│   ├── test_mcp_agent.py     # Test MCP pipeline end-to-end
+│   └── fix_demo.sh           # Manual fix fallback
+├── tests/                    # Integration tests
+├── AGENTS.md                 # Security policy + MCP tool instructions
+├── DEMO.md                   # Full demo guide
 └── README.md
 ```
 
 ## Scenarios
 
-| Path | Scenario | Break | Fix |
-|------|----------|-------|-----|
-| `/service1` | Stale lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `./scripts/fix_demo.sh service1` |
-| `/service2` | Readiness probe | (broken by default) | `./scripts/fix_demo.sh service2` |
-| `/service3` | Bad env config | (broken by default) | `./scripts/fix_demo.sh service3` |
+| Path | Scenario | Break | MCP Fix | Manual Fix |
+|------|----------|-------|---------|------------|
+| `/service1` | Stale lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `fix_service1` | `./scripts/fix_demo.sh service1` |
+| `/service2` | Readiness probe | (broken by default) | `fix_service2` | `./scripts/fix_demo.sh service2` |
+| `/service3` | Bad env config | (broken by default) | `fix_service3` (instructions) | `./scripts/fix_demo.sh service3` |
 
 ## Security Policy
 

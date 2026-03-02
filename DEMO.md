@@ -1,222 +1,160 @@
 # OpenHands SRE Demo Guide
 
-This guide covers all demo scenarios for showcasing OpenHands Cloud + GitHub integration with security policy enforcement.
+This guide covers all demo scenarios for showcasing OpenHands Cloud + GitHub integration with MCP-based incident remediation and security policy enforcement.
 
 ## Quick Reference
 
 | Demo | Command | Shows |
 |------|---------|-------|
+| MEDIUM Risk | `uv run python scripts/create_demo_issue.py --scenario stale_lockfile` | Agent calls MCP tools to fix live service |
 | LOW Risk | `uv run python scripts/create_demo_issue.py --scenario readiness_probe_fail` | Auto-fix, minimal reporting |
-| MEDIUM Risk | `uv run python scripts/create_demo_issue.py --scenario stale_lockfile` | Fix with risk justifications |
 | HIGH Risk | `uv run python scripts/create_demo_issue.py --scenario corrupted_data_store` | STOP, request human approval (no execution) |
-| Manual Fix | `./scripts/fix_demo.sh service1` | Simulates self-hosted remediation |
+| Test Agent | `uv run python scripts/test_mcp_agent.py` | Verify MCP pipeline works end-to-end |
+| Manual Fix | `./scripts/fix_demo.sh service1` | Manual fallback (no MCP needed) |
 
 ---
 
-## Part 0: Live Service Demo (Visual Before/After)
+## Architecture
 
-The target service shows **pretty HTML status pages** in the browser:
-- **Broken**: Red page with ❌ icon and error details
-- **Fixed**: Green page with ✅ icon and success message
-
-### Tailscale Funnel URL
-
-The local Docker container can be exposed to the internet via Tailscale Funnel.
-Each user will have a unique URL based on their machine name and tailnet.
-
-```bash
-# Start Tailscale Funnel
-tailscale funnel 15000
-
-# Get your unique URL (looks like https://your-machine.tailnet.ts.net)
-tailscale funnel status
-
-# Export it for the demo scripts
-export DEMO_TARGET_URL=https://your-machine.tailnet.ts.net
+```
+GitHub Issue ──→ OpenHands Cloud ──→ MCP Server ──→ Docker Container
+  (openhands        (reads skills,       (port 8080,        (openhands-gepa-demo,
+   label)           calls MCP tools)     Tailscale Funnel)    port 15000)
 ```
 
-### Quick Visual Demo
+The MCP server runs on your machine and exposes diagnose/fix tools over the network.
+OpenHands Cloud calls these tools remotely to fix live services — no shell access needed.
 
-```bash
-# 1. Run setup script
-./scripts/setup_demo.sh
+---
 
-# 2. Break service1 (stale lockfile)
-docker exec openhands-gepa-demo touch /tmp/service.lock
+## Setup
 
-# 3. Open browser - see RED error page (use your Tailscale URL or localhost)
-open http://localhost:15000/service1
-
-# 4. Fix it
-docker exec openhands-gepa-demo rm -f /tmp/service.lock
-
-# 5. Refresh browser - see GREEN success page
-```
-
-### Quick Setup
-
-Run the setup script to build and start everything:
+### 1. Start the Demo Environment
 
 ```bash
 ./scripts/setup_demo.sh
 ```
 
-This will:
-- Build the Docker image
-- Start the container on port 15000
-- Check Tailscale status
-- Print all the URLs and commands you need
+This builds the Docker image, starts the container on port 15000, and checks Tailscale.
 
-### Multi-Scenario Mode (Recommended)
-
-Run **without** the SCENARIO env var to get all scenarios at different paths:
+### 2. Start the MCP Server
 
 ```bash
-docker run -d -p 15000:5000 --name openhands-gepa-demo openhands-gepa-sre-target:latest
-```
-
-| Path | Scenario | Break Command | Fix Command |
-|------|----------|---------------|-------------|
-| `/` | Index page | - | - |
-| `/service1` | stale_lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `./scripts/fix_demo.sh service1` |
-| `/service2` | readiness_probe_fail | (broken by default) | `./scripts/fix_demo.sh service2` |
-| `/service3` | bad_env_config | (broken by default) | `./scripts/fix_demo.sh service3` |
-
-### Single-Scenario Mode (Legacy)
-
-Run with SCENARIO env var to get one scenario at `/`:
-
-| Scenario | Start Command | Fix Command |
-|----------|---------------|-------------|
-| `stale_lockfile` | `-e SCENARIO=stale_lockfile` | `docker exec openhands-gepa-demo rm -f /tmp/service.lock` |
-| `readiness_probe_fail` | `-e SCENARIO=readiness_probe_fail` | `docker exec openhands-gepa-demo touch /tmp/ready.flag` |
-
-### Tailscale Setup (One-Time)
-
-```bash
-# Start Tailscale and enable Funnel for the demo service
-tailscale up
-tailscale funnel 15000
-
-# If using MCP, also expose the MCP server
-tailscale funnel --bg 8080
-```
-
-**Note**: Your Mac must be on for the Tailscale Funnel to work.
-
----
-
-## MCP Server Setup (Optional - Enables Real Execution)
-
-The MCP server allows OpenHands Cloud to actually execute fixes on your infrastructure.
-
-### Start the MCP Server
-
-```bash
-# Terminal 1: Run the MCP server
 uv run python mcp_server/server.py
 ```
 
-### Expose via Tailscale
+The MCP server runs on port 8080 and exposes 7 tools (diagnose/fix for 3 services + status check). It supports both **streamable HTTP** (`/mcp`) and **SSE** (`/sse`) transports.
+
+### 3. Expose via Tailscale Funnel
 
 ```bash
-# Terminal 2: Expose to the internet
-tailscale funnel 8080
+# Expose both the demo service and MCP server
+tailscale funnel --set-path / 15000    # Demo service at /
+tailscale funnel --set-path /mcp 8080  # MCP server at /mcp
+
+# Verify
+tailscale funnel status
 ```
 
-Your MCP endpoint will be: `https://your-machine.tailnet.ts.net:8080/sse`
+Your URLs:
+- **Demo service**: `https://your-machine.tailnet.ts.net/service1`
+- **MCP server**: `https://your-machine.tailnet.ts.net/mcp`
 
-### Configure OpenHands Cloud
+### 4. Configure OpenHands Cloud
 
-In OpenHands Cloud, go to **Settings > MCP** and add your SSE server URL.
+1. Go to [app.all-hands.dev](https://app.all-hands.dev) → **Settings → MCP**
+2. Add your MCP URL: `https://your-machine.tailnet.ts.net/mcp`
+3. Cloud will connect using streamable HTTP transport (auto-appends `/sse` for SSE fallback)
 
-### Available MCP Tools
+### 5. Verify MCP Works
 
-| Tool | Description | Risk |
-|------|-------------|------|
-| `get_all_service_status` | Quick health check | LOW |
-| `diagnose_service1` | Check stale lockfile | LOW |
-| `diagnose_service2` | Check readiness probe | LOW |
-| `fix_service1` | Remove `/tmp/service.lock` | MEDIUM |
-| `fix_service2` | Create `/tmp/ready.flag` | LOW |
+```bash
+# Quick test — calls diagnose/fix/verify for all broken services
+uv run python scripts/test_mcp_agent.py
+
+# Test through Tailscale (same path Cloud uses)
+uv run python scripts/test_mcp_agent.py --url https://your-machine.tailnet.ts.net/mcp
+```
 
 ---
 
-## Part 1: OpenHands Cloud + GitHub Integration
+## Services & Scenarios
 
-### The Outer Loop Story
+| Path | Scenario | Break Command | MCP Fix | Manual Fix |
+|------|----------|---------------|---------|------------|
+| `/service1` | Stale lockfile | `docker exec openhands-gepa-demo touch /tmp/service.lock` | `fix_service1` | `./scripts/fix_demo.sh service1` |
+| `/service2` | Readiness probe | (broken by default) | `fix_service2` | `./scripts/fix_demo.sh service2` |
+| `/service3` | Bad env config | (broken by default) | `fix_service3` (instructions only) | `./scripts/fix_demo.sh service3` |
+
+### MCP Tools
+
+| Tool | What it does (remotely) | Risk |
+|------|------------------------|------|
+| `get_all_service_status` | HTTP health check of all 3 services | LOW |
+| `diagnose_service1` | Check if `/tmp/service.lock` exists | LOW |
+| `diagnose_service2` | Check if `/tmp/ready.flag` exists | LOW |
+| `diagnose_service3` | Check if `REQUIRED_API_KEY` is set | LOW |
+| `fix_service1` | Remove `/tmp/service.lock` | MEDIUM (auto-approved) |
+| `fix_service2` | Create `/tmp/ready.flag` | LOW |
+| `fix_service3` | Return restart instructions | MEDIUM |
+
+---
+
+## Part 1: Live Remediation via MCP (Primary Demo)
+
+### The Full Loop
 
 ```
-GitHub Issue --> OpenHands Cloud --> Agent Runs --> PR Created
-     ^                                                   |
-     |_________________ Human Reviews __________________|
+GitHub Issue ──→ OpenHands Cloud ──→ MCP: diagnose ──→ MCP: fix ──→ MCP: verify ──→ PR Created
+  (openhands        (reads skills,        (confirms       (executes      (confirms      (documents
+   label)           calls tools)          root cause)      fix remotely)  HTTP 200)      incident)
 ```
 
-### Setup Requirements
+### Prerequisites
 
 1. Repository connected to OpenHands Cloud
 2. `openhands` label created in GitHub repo
-3. OpenHands Cloud has access to the repository
-4. Tailscale Funnel running (for live service demo)
-5. Branch protection on `main` (agent must create PRs, can't push directly)
+3. MCP server running and exposed via Tailscale Funnel (see Setup above)
+4. MCP URL configured in OpenHands Cloud settings
+5. Branch protection on `main` (agent creates PRs, can't push directly)
 
 ### How to Demo
 
-1. **Start broken service** (browser shows red error page):
+1. **Break service1** (browser shows red error page):
    ```bash
-   docker rm -f openhands-gepa-demo
-   docker run -d -p 15000:5000 -e SCENARIO=stale_lockfile --name openhands-gepa-demo openhands-gepa-sre-target:latest
+   docker exec openhands-gepa-demo touch /tmp/service.lock
+   open https://your-machine.tailnet.ts.net/service1  # RED ❌ page
    ```
 
-2. **Create an issue** (choose one method):
-
-   **Option A: Use the script**
+2. **Create an incident issue**:
    ```bash
+   export DEMO_TARGET_URL=https://your-machine.tailnet.ts.net
    uv run python scripts/create_demo_issue.py --scenario stale_lockfile
    ```
 
-   **Option B: Create manually in GitHub**
-   - Go to your repo's Issues page and create a new issue
-   - Title: `Service health check failing at /service1 endpoint`
-   - Body:
-     ```
-     The health check at <YOUR_TAILSCALE_URL>/service1 is returning HTTP 500.
-     
-     Please diagnose and fix following the security policy in AGENTS.md.
-     ```
-   - **Add the `openhands` label** ← This triggers OpenHands Cloud
+3. **Watch OpenHands Cloud** at [app.all-hands.dev](https://app.all-hands.dev):
+   - Agent picks up the issue automatically
+   - Reads the `stale-lockfile` skill from `.agents/skills/`
+   - Calls `get_all_service_status` → confirms service1 HTTP 500
+   - Calls `diagnose_service1` → confirms stale lockfile
+   - **Calls `fix_service1`** → removes lockfile remotely via MCP
+   - Calls `get_all_service_status` → confirms service1 HTTP 200
+   - Creates PR documenting the incident
 
-3. **Watch OpenHands Cloud**:
-   - Go to https://app.all-hands.dev
-   - See the conversation start automatically
-   - Agent curls the Tailscale URL and sees the error
+4. **Refresh browser** — see GREEN ✅ page! The service is fixed.
 
-4. **Check GitHub**:
-   - Issue gets a comment from `@openhands-ai`
-   - PR is created with fix + tests
-   - PR links back to the issue
-
-5. **Execute the fix** (simulates what self-hosted OpenHands would do):
-   ```bash
-   ./scripts/fix_demo.sh service1
-   ```
-   Refresh browser - green success page!
-   
-   > *Demo narrative: "In self-hosted, the agent executes this automatically. Let me show you what that looks like..."*
+5. **Check GitHub** — PR created with full incident report, risk assessment, and MCP tool outputs.
 
 ### Demo Narrative
 
 **Opening:**
-> "OpenHands can solve different types of problems. For **code bugs**, Cloud creates a PR - you merge it, CI/CD deploys the fix, done. But **operational issues** need direct access to your infrastructure. With self-hosted OpenHands inside your network, it can run commands, restart services, clear locks - whatever your SRE team would do."
+> "Let me show you autonomous incident remediation. I'll break a service, create a GitHub issue, and watch OpenHands fix it — no human in the loop."
 
 **During the demo:**
-> "Watch this: I create a GitHub issue describing an incident. OpenHands Cloud picks it up automatically - no human triggers it. The agent reads our runbooks, diagnoses the problem via the public URL, and documents the fix in a PR. Notice it can't push directly to main - branch protection requires a PR, so humans stay in control."
+> "The agent reads our runbook skills, connects to our MCP server via Tailscale, and calls the fix tool remotely. The MCP server runs on my machine and has Docker access to the container. The agent never touches Docker directly — it just calls API-like tools."
 
-**Before running the fix:**
-> "Cloud diagnosed the issue and documented the fix. For a code bug, we'd just merge the PR and we're done. But this is an operational issue - we need to run a command on the infrastructure. With self-hosted OpenHands, this happens automatically. Let me show you what that looks like..."
-
-**After running `./scripts/fix_demo.sh`:**
-> "And we're green. Cloud handles code fixes through PRs. Self-hosted goes further - it can actually run the commands to fix your infrastructure. That's what enterprises need."
+**After the fix:**
+> "Service is green. The agent diagnosed the issue, fixed it live, verified the fix, and documented everything in a PR. Same skills, same policies, at enterprise scale."
 
 ---
 
@@ -319,13 +257,15 @@ uv run python scripts/create_demo_issue.py --scenario stale_lockfile
 ### Opening (30 sec)
 > "Let me show you the Agent Control Plane for SRE."
 
-### Part 1: Cloud Agents + GitHub (2 min)
+### Part 1: Live Fix via MCP (2.5 min)
 ```bash
+docker exec openhands-gepa-demo touch /tmp/service.lock
+export DEMO_TARGET_URL=https://your-machine.tailnet.ts.net
 uv run python scripts/create_demo_issue.py --scenario stale_lockfile
 ```
-> "GitHub issue to OpenHands Cloud to PR. Fully autonomous for code fixes."
+> "I just broke the service. Now I create a GitHub issue. Watch: OpenHands picks it up, reads the runbook skill, calls the MCP fix tool, and the service goes green — all autonomous."
 
-Show: Issue comment, Cloud conversation, PR created
+Show: Issue → Cloud conversation → MCP tool calls → service goes green → PR created
 
 ### Part 2: Human Approval for High Risk (2 min)
 ```bash
@@ -335,11 +275,8 @@ uv run python scripts/create_demo_issue.py --scenario corrupted_data_store
 
 Show: Agent STOPPED, approval request, explicit human-only remediation
 
-### Part 3: Scale Story (30 sec)
-> "Same policies, same audit trail, at enterprise scale."
-
-### Closing
-> "Questions?"
+### Closing (30 sec)
+> "Same skills, same policies, same audit trail — at enterprise scale. Questions?"
 
 ---
 
@@ -347,13 +284,19 @@ Show: Agent STOPPED, approval request, explicit human-only remediation
 
 ### Issue not picked up by Cloud
 - Check `openhands` label is on the issue
-- Verify Cloud has access to the repo
-- Check Cloud dashboard for any errors
+- Verify Cloud has access to the repo at [app.all-hands.dev](https://app.all-hands.dev)
+
+### Agent diagnoses but doesn't fix
+- Verify skills in `.agents/skills/` say "Call the fix tool NOW" (not "if available")
+- Verify `AGENTS.md` MCP section explains tools execute remotely
+- Check MCP server is running: `curl http://127.0.0.1:8080/`
+
+### MCP tools not connecting
+- Verify MCP server is running: `uv run python mcp_server/server.py`
+- Verify Tailscale Funnel: `tailscale funnel status`
+- Test MCP end-to-end: `uv run python scripts/test_mcp_agent.py --url https://your-machine.tailnet.ts.net/mcp`
+- Check MCP server logs: `tail -f /tmp/mcp_server.log`
 
 ### Security policy not followed
 - Verify `AGENTS.md` is committed and pushed
 - Agent reads it at conversation start
-
-### Laminar traces not appearing
-- Check `LMNR_PROJECT_API_KEY` is set correctly
-- OpenHands Cloud may block port 8443 (use local demo instead)
