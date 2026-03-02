@@ -4,6 +4,10 @@ Demonstrates **OpenHands Cloud** integration with **GitHub** for autonomous inci
 
 > **For full demo instructions, see [DEMO.md](DEMO.md)**
 
+## Real-World Incident Scenarios
+
+The scenarios in this demo are based on [ITBench](https://github.com/itbench-hub/ITBench), a public benchmark for IT automation from IBM Research. These aren't toy examples - they represent real incident patterns that SRE teams face in production.
+
 ## What This Demo Shows
 
 1. **GitHub Issue → Automatic Agent** - Create an issue with `openhands` label, agent picks it up
@@ -124,3 +128,8 @@ The `AGENTS.md` file controls agent behavior:
 ```bash
 uv run python -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+## Acknowledgments
+
+- Incident scenarios based on [ITBench](https://github.com/itbench-hub/ITBench) from IBM Research
+- Built with [OpenHands](https://github.com/All-Hands-AI/OpenHands) - the open platform for AI software developers
