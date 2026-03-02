@@ -55,7 +55,9 @@ The following actions are ALWAYS HIGH risk and must NOT be executed without expl
 
 ## MCP Tools (Infrastructure Execution)
 
-If MCP tools are available, use them for diagnosis and remediation:
+**⚠️ CRITICAL: When MCP tools are available, you MUST use them to execute real fixes on live infrastructure. Do NOT just document fixes — actually call the fix tools.**
+
+The MCP tools execute commands inside the demo Docker container. They are the primary way to diagnose and remediate incidents:
 
 | Tool | Description | Risk Level |
 |------|-------------|------------|
@@ -67,7 +69,16 @@ If MCP tools are available, use them for diagnosis and remediation:
 | `fix_service2` | Create `/tmp/ready.flag` | LOW |
 | `fix_service3` | Returns instructions (needs restart) | MEDIUM |
 
-**Prefer MCP tools over manual shell commands when available.** MCP tools are locked down to the demo container and provide structured responses.
+### Required Workflow for Incidents
+
+When an incident issue mentions MCP tools, follow this exact sequence:
+
+1. **Diagnose** — Call the appropriate `diagnose_serviceN` tool
+2. **Fix** — Call the appropriate `fix_serviceN` tool to execute the remediation
+3. **Verify** — Call `get_all_service_status` or `diagnose_serviceN` again to confirm the fix worked
+4. **Document** — Create a PR with the incident report and risk assessment
+
+**Do NOT skip step 2.** The fix tools are MEDIUM risk at most and are auto-approved per the security policy above. Documenting a fix without executing it leaves the service broken.
 
 ## Available Skills
 

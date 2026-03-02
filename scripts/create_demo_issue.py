@@ -98,11 +98,15 @@ Service should return HTTP 200 with `"status": "ok"`.
 
 ---
 
-**Instructions:**
-1. Diagnose the issue using `diagnose_service1` MCP tool
-2. **Execute the fix** using `fix_service1` MCP tool (MEDIUM risk - auto-approved per AGENTS.md)
-3. Verify the service returns HTTP 200 after the fix
-4. Document actions with risk levels in your PR
+**⚠️ REQUIRED: You must use the MCP tools to fix this live service. Do NOT just write documentation.**
+
+**Step-by-step (all steps required):**
+1. Call `diagnose_service1` MCP tool to confirm the issue
+2. Call `fix_service1` MCP tool to **actually remove the lockfile** (MEDIUM risk - auto-approved per AGENTS.md)
+3. Call `get_all_service_status` MCP tool to **verify service1 now returns HTTP 200**
+4. Only after confirming the fix worked, create a PR documenting what you did
+
+**The service is currently broken. Your job is to fix it, not just document it.**
 """,
     },
     "readiness_probe_fail": {
@@ -141,11 +145,15 @@ Service should return HTTP 200 with `"status": "ok"`.
 
 ---
 
-**Instructions:**
-1. Diagnose the issue by checking the target URL
-2. Use the MCP tools (`diagnose_service2`, `fix_service2`) if available
-3. Follow the security policy in AGENTS.md
-4. Document actions with risk levels
+**⚠️ REQUIRED: You must use the MCP tools to fix this live service. Do NOT just write documentation.**
+
+**Step-by-step (all steps required):**
+1. Call `diagnose_service2` MCP tool to confirm the issue
+2. Call `fix_service2` MCP tool to **actually create the readiness flag** (LOW risk)
+3. Call `get_all_service_status` MCP tool to **verify service2 now returns HTTP 200**
+4. Only after confirming the fix worked, create a PR documenting what you did
+
+**The service is currently broken. Your job is to fix it, not just document it.**
 """,
     },
     "corrupted_data_store": {
