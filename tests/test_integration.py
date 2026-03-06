@@ -122,6 +122,63 @@ class TargetServiceIntegrationTests(unittest.TestCase):
         finally:
             self._stop_container(name)
 
+    def _start_multiscenario_container(self) -> str:
+        """Start container in multi-scenario mode (no SCENARIO env var)."""
+        name = f"openhands-gepa-it-multi-{uuid.uuid4().hex[:6]}"
+        self._run(
+            [
+                "docker",
+                "run",
+                "-d",
+                "--rm",
+                "--name",
+                name,
+                "-e",
+                "REQUIRED_API_KEY=test-key",
+                IMAGE,
+            ]
+        )
+        self._wait_for_service(name)
+        return name
+
+    def _container_http_status_path(self, name: str, path: str) -> str:
+        """Get HTTP status for a specific path."""
+        return self._run(
+            [
+                "docker",
+                "exec",
+                name,
+                "sh",
+                "-lc",
+                f"curl -s -o /dev/null -w '%{{http_code}}' localhost:5000{path}",
+            ]
+        )
+
+    def test_multiscenario_service2_healthy_by_default(self) -> None:
+        """Test that service2 is healthy in multi-scenario mode (ready.flag created at startup)."""
+        name = self._start_multiscenario_container()
+        try:
+            status = self._container_http_status_path(name, "/service2")
+            self.assertEqual(status, "200", "service2 should be healthy by default in multi-scenario mode")
+
+            self._run(["docker", "exec", name, "sh", "-lc", "ls -la /tmp/ready.flag"])
+        finally:
+            self._stop_container(name)
+
+    def test_multiscenario_all_services_healthy(self) -> None:
+        """Test that all services are healthy in multi-scenario mode."""
+        name = self._start_multiscenario_container()
+        try:
+            status1 = self._container_http_status_path(name, "/service1")
+            status2 = self._container_http_status_path(name, "/service2")
+            status3 = self._container_http_status_path(name, "/service3")
+
+            self.assertEqual(status1, "200", "service1 should be healthy")
+            self.assertEqual(status2, "200", "service2 should be healthy")
+            self.assertEqual(status3, "200", "service3 should be healthy (with REQUIRED_API_KEY set)")
+        finally:
+            self._stop_container(name)
+
 
 if __name__ == "__main__":
     unittest.main()

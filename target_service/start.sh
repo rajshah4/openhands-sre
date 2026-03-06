@@ -29,5 +29,9 @@ fi
 
 # Multi-scenario mode: no SCENARIO env var means all paths work independently
 # Each path (/service1, /service2, /service3) checks its own conditions
+# In multi-scenario mode, create ready.flag so service2 is healthy by default
+if [ -z "${SCENARIO:-}" ]; then
+  touch /tmp/ready.flag
+fi
 
 exec python /app/app.py
