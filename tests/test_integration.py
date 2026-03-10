@@ -122,6 +122,45 @@ class TargetServiceIntegrationTests(unittest.TestCase):
         finally:
             self._stop_container(name)
 
+    def _start_container_with_env(self, scenario: str, env_vars: dict[str, str] | None = None) -> str:
+        """Start a container with optional extra environment variables."""
+        name = f"openhands-gepa-it-{scenario}-{uuid.uuid4().hex[:6]}"
+        cmd = [
+            "docker",
+            "run",
+            "-d",
+            "--rm",
+            "--name",
+            name,
+            "-e",
+            f"SCENARIO={scenario}",
+        ]
+        if env_vars:
+            for key, value in env_vars.items():
+                cmd.extend(["-e", f"{key}={value}"])
+        cmd.append(IMAGE)
+        self._run(cmd)
+        self._wait_for_service(name)
+        return name
+
+    def test_bad_env_config_returns_500_without_api_key(self) -> None:
+        """Test that service3 (bad_env_config) returns 500 when REQUIRED_API_KEY is missing."""
+        name = self._start_container("bad_env_config")
+        try:
+            status = self._container_http_status(name)
+            self.assertEqual(status, "500")
+        finally:
+            self._stop_container(name)
+
+    def test_bad_env_config_returns_200_with_api_key(self) -> None:
+        """Test that service3 (bad_env_config) returns 200 when REQUIRED_API_KEY is set."""
+        name = self._start_container_with_env("bad_env_config", {"REQUIRED_API_KEY": "test-secret"})
+        try:
+            status = self._container_http_status(name)
+            self.assertEqual(status, "200")
+        finally:
+            self._stop_container(name)
+
 
 if __name__ == "__main__":
     unittest.main()
