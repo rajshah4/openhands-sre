@@ -17,6 +17,7 @@ import base64
 from datetime import datetime, timezone
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -252,6 +253,14 @@ def complete_github_signal(
     post_commit_status(repo, sha, status_state, name, summary.splitlines()[0], target_url)
 
 
+def write_signal_file(path: str, payload: dict) -> None:
+    Path(path).write_text(json.dumps(payload), encoding="utf-8")
+
+
+def read_signal_file(path: str) -> dict:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Trigger Jenkins validation for an OpenHands PR")
     parser.add_argument("--repo", default=os.getenv("GITHUB_REPO", "rajshah4/openhands-sre"))
@@ -268,6 +277,8 @@ def main() -> int:
         "--check-name",
         default=os.getenv("JENKINS_CHECK_NAME", os.getenv("JENKINS_STATUS_CONTEXT", "Jenkins / OpenHands SRE Demo")),
     )
+    parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--signal-file")
     parser.add_argument("--comment-pr", action="store_true")
     args = parser.parse_args()
 
@@ -298,16 +309,38 @@ def main() -> int:
         print(f"PR #{pr['number']} is missing a head SHA; cannot create a GitHub check run", file=sys.stderr, flush=True)
         return 1
 
-    previous_build = get_last_build(args.jenkins_url, args.jenkins_job, args.jenkins_user, args.jenkins_password)
-    next_build_number = previous_build.get("number", 0) + 1
-    build_url = f"{args.jenkins_url}/job/{urllib.parse.quote(args.jenkins_job, safe='')}/{next_build_number}/"
-    signal_mode, signal_id = start_github_signal(
-        args.repo,
-        head_sha,
-        args.check_name,
-        f"Jenkins build #{next_build_number} is running",
-        build_url,
-    )
+    if args.signal_file and Path(args.signal_file).exists():
+        signal = read_signal_file(args.signal_file)
+        next_build_number = int(signal["next_build_number"])
+        build_url = signal["build_url"]
+        signal_mode = signal["signal_mode"]
+        signal_id = signal.get("signal_id")
+    else:
+        previous_build = get_last_build(args.jenkins_url, args.jenkins_job, args.jenkins_user, args.jenkins_password)
+        next_build_number = previous_build.get("number", 0) + 1
+        build_url = f"{args.jenkins_url}/job/{urllib.parse.quote(args.jenkins_job, safe='')}/{next_build_number}/"
+        signal_mode, signal_id = start_github_signal(
+            args.repo,
+            head_sha,
+            args.check_name,
+            f"Jenkins build #{next_build_number} is running",
+            build_url,
+        )
+        if args.signal_file:
+            write_signal_file(
+                args.signal_file,
+                {
+                    "next_build_number": next_build_number,
+                    "build_url": build_url,
+                    "signal_mode": signal_mode,
+                    "signal_id": signal_id,
+                },
+            )
+
+    if args.prepare_only:
+        print(f"Prepared GitHub signal for PR #{pr['number']} build #{next_build_number}", flush=True)
+        return 0
+
     print(f"Triggering Jenkins job '{args.jenkins_job}' at {args.jenkins_url} ...", flush=True)
     try:
         trigger_jenkins(args.jenkins_url, args.jenkins_job, args.jenkins_user, args.jenkins_password)

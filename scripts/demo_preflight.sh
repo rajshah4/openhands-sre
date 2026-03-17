@@ -9,7 +9,7 @@ APP_PORT="${APP_PORT:-15000}"
 SERVICE1_EXPECTED_HTTP="${SERVICE1_EXPECTED_HTTP:-200}"
 MCP_HOST="${MCP_HOST:-127.0.0.1}"
 MCP_PORT="${MCP_PORT:-8080}"
-PUBLIC_MCP_URL="${PUBLIC_MCP_URL:-https://macbook-pro.tail21d104.ts.net/mcp}"
+PUBLIC_MCP_URL="${PUBLIC_MCP_URL:-}"
 JENKINS_URL="${JENKINS_URL:-http://127.0.0.1:8081}"
 JENKINS_USER="${JENKINS_USER:-admin}"
 JENKINS_PASSWORD="${JENKINS_PASSWORD:-admin}"
@@ -28,6 +28,41 @@ require_cmd() {
         echo -e "${RED}FAIL${NC} missing command: $1"
         exit 1
     fi
+}
+
+infer_public_mcp_url() {
+    if [[ -n "$PUBLIC_MCP_URL" ]]; then
+        return 0
+    fi
+    if ! command -v tailscale >/dev/null 2>&1; then
+        return 1
+    fi
+
+    local funnel_status base_url
+    funnel_status="$(tailscale funnel status 2>/dev/null || true)"
+    base_url="$(
+        printf '%s\n' "$funnel_status" \
+            | grep -E '^https://' \
+            | awk '{print $1}' \
+            | grep -v ':8443$' \
+            | head -1
+    )"
+
+    if [[ -z "$base_url" ]]; then
+        base_url="$(
+            printf '%s\n' "$funnel_status" \
+                | grep -E '^https://' \
+                | awk '{print $1}' \
+                | head -1
+        )"
+    fi
+
+    if [[ -n "$base_url" ]]; then
+        PUBLIC_MCP_URL="${base_url%/}/mcp"
+        export PUBLIC_MCP_URL
+        return 0
+    fi
+    return 1
 }
 
 check_http() {
@@ -104,6 +139,7 @@ main() {
     require_cmd curl
     require_cmd docker
     require_cmd gh
+    infer_public_mcp_url || true
 
     local failed=0
 
@@ -128,7 +164,12 @@ main() {
     check_http "Host app index" "http://${APP_HOST}:${APP_PORT}/" "200" || failed=1
     check_http "Host service1" "http://${APP_HOST}:${APP_PORT}/service1" "${SERVICE1_EXPECTED_HTTP}" || failed=1
     check_http "Local MCP" "http://${MCP_HOST}:${MCP_PORT}/" "200" || failed=1
-    check_http "Public MCP" "${PUBLIC_MCP_URL}" "200" || failed=1
+    if [[ -n "$PUBLIC_MCP_URL" ]]; then
+        check_http "Public MCP" "${PUBLIC_MCP_URL}" "200" || failed=1
+    else
+        echo -e "${RED}FAIL${NC} Public MCP URL not set and could not be inferred from Tailscale Funnel"
+        failed=1
+    fi
     check_http "Jenkins login" "${JENKINS_URL}/login" "200" || failed=1
     check_jenkins_job || failed=1
     check_github_auth || failed=1

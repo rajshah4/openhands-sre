@@ -16,6 +16,7 @@ import json
 import hmac
 import hashlib
 import os
+from pathlib import Path
 import subprocess
 import sys
 from datetime import datetime
@@ -40,6 +41,7 @@ GITHUB_REPO = os.getenv("GITHUB_REPO", "rajshah4/openhands-sre")
 JENKINS_URL = os.getenv("JENKINS_URL", "http://127.0.0.1:8081")
 GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
 WEBHOOK_LOG = os.getenv("GITHUB_WEBHOOK_LOG", "/tmp/github_webhook_jenkins.log")
+WEBHOOK_DELIVERY_DIR = Path(os.getenv("GITHUB_WEBHOOK_DELIVERY_DIR", "/tmp/github_webhook_deliveries"))
 
 # Base path for reverse proxy (e.g., "/mcp" when behind Tailscale Funnel)
 # This rewrites SSE endpoint URLs so MCP clients can find /messages/
@@ -95,6 +97,7 @@ def _verify_github_signature(raw_body: bytes, signature_header: str | None) -> b
 
 
 def _spawn_jenkins_trigger(pr_number: int, head_sha: str | None) -> None:
+    signal_file = WEBHOOK_DELIVERY_DIR / f"pr-{pr_number}.json"
     os.makedirs(os.path.dirname(WEBHOOK_LOG), exist_ok=True)
     cmd = [
         sys.executable,
@@ -105,6 +108,8 @@ def _spawn_jenkins_trigger(pr_number: int, head_sha: str | None) -> None:
         str(pr_number),
         "--jenkins-url",
         JENKINS_URL,
+        "--signal-file",
+        str(signal_file),
         "--comment-pr",
     ]
     if head_sha:
@@ -119,6 +124,50 @@ def _spawn_jenkins_trigger(pr_number: int, head_sha: str | None) -> None:
             stderr=log_file,
             start_new_session=True,
         )
+
+
+def _prepare_jenkins_trigger(pr_number: int, head_sha: str | None) -> bool:
+    WEBHOOK_DELIVERY_DIR.mkdir(parents=True, exist_ok=True)
+    signal_file = WEBHOOK_DELIVERY_DIR / f"pr-{pr_number}.json"
+    cmd = [
+        sys.executable,
+        os.path.join(ROOT_DIR, "scripts", "github_to_jenkins.py"),
+        "--repo",
+        GITHUB_REPO,
+        "--pr",
+        str(pr_number),
+        "--jenkins-url",
+        JENKINS_URL,
+        "--signal-file",
+        str(signal_file),
+        "--prepare-only",
+    ]
+    if head_sha:
+        cmd.extend(["--sha", head_sha])
+
+    result = subprocess.run(
+        cmd,
+        cwd=ROOT_DIR,
+        capture_output=True,
+        text=True,
+    )
+    with open(WEBHOOK_LOG, "ab") as log_file:
+        if result.stdout:
+            log_file.write(result.stdout.encode())
+        if result.stderr:
+            log_file.write(result.stderr.encode())
+    return result.returncode == 0
+
+
+def _claim_delivery(delivery_id: str) -> bool:
+    WEBHOOK_DELIVERY_DIR.mkdir(parents=True, exist_ok=True)
+    marker = WEBHOOK_DELIVERY_DIR / f"delivery-{delivery_id}"
+    try:
+        with marker.open("x", encoding="utf-8") as handle:
+            handle.write(datetime.now().isoformat())
+        return True
+    except FileExistsError:
+        return False
 
 
 @mcp.tool()
@@ -401,6 +450,8 @@ if __name__ == "__main__":
             return JSONResponse({"status": "ignored", "event": event})
 
         payload = json.loads(raw_body.decode("utf-8"))
+        delivery_id = request.headers.get("x-github-delivery")
+
         action = payload.get("action", "")
         if action not in {"opened", "reopened", "synchronize", "ready_for_review"}:
             return JSONResponse({"status": "ignored", "action": action})
@@ -415,6 +466,14 @@ if __name__ == "__main__":
         if not pr_number:
             return JSONResponse({"status": "error", "reason": "missing pull request number"}, status_code=400)
 
+        if delivery_id and not _claim_delivery(delivery_id):
+            return JSONResponse({"status": "duplicate", "delivery": delivery_id})
+
+        if not _prepare_jenkins_trigger(pr_number, head_sha):
+            if delivery_id:
+                marker = WEBHOOK_DELIVERY_DIR / f"delivery-{delivery_id}"
+                marker.unlink(missing_ok=True)
+            return JSONResponse({"status": "error", "reason": "failed to prepare Jenkins trigger"}, status_code=500)
         _spawn_jenkins_trigger(pr_number, head_sha)
         return JSONResponse(
             {
