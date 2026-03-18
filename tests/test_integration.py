@@ -1,14 +1,65 @@
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 import time
 import unittest
 import uuid
 from pathlib import Path
 
+# Allow importing the target_service package without Docker
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 ROOT = Path(__file__).resolve().parents[1]
 IMAGE = "openhands-gepa-sre-target:latest"
+LOCKFILE = "/tmp/service.lock"
+
+
+class StaleLockfileUnitTests(unittest.TestCase):
+    """Unit tests for the stale lockfile scenario using Flask test client.
+
+    These tests run without Docker and directly exercise the Flask app logic.
+    """
+
+    def setUp(self) -> None:
+        if os.path.exists(LOCKFILE):
+            os.remove(LOCKFILE)
+        from target_service.app import app
+        app.config["TESTING"] = True
+        self.client = app.test_client()
+
+    def tearDown(self) -> None:
+        if os.path.exists(LOCKFILE):
+            os.remove(LOCKFILE)
+
+    def test_service1_returns_500_when_lockfile_present(self) -> None:
+        Path(LOCKFILE).touch()
+        resp = self.client.get("/service1", headers={"Accept": "application/json"})
+        self.assertEqual(resp.status_code, 500)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "error")
+        self.assertIn("stale lockfile", data["reason"])
+
+    def test_service1_returns_200_after_lockfile_removed(self) -> None:
+        Path(LOCKFILE).touch()
+        resp_before = self.client.get("/service1", headers={"Accept": "application/json"})
+        self.assertEqual(resp_before.status_code, 500)
+
+        # Simulate remediation: remove the stale lockfile
+        os.remove(LOCKFILE)
+
+        resp_after = self.client.get("/service1", headers={"Accept": "application/json"})
+        self.assertEqual(resp_after.status_code, 200)
+        data = resp_after.get_json()
+        self.assertEqual(data["status"], "ok")
+
+    def test_service1_returns_200_without_lockfile(self) -> None:
+        self.assertFalse(os.path.exists(LOCKFILE))
+        resp = self.client.get("/service1", headers={"Accept": "application/json"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "ok")
 
 
 class TargetServiceIntegrationTests(unittest.TestCase):
