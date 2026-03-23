@@ -15,6 +15,7 @@ Service1 returned HTTP 500 due to a stale lockfile at `/tmp/service.lock`. The l
 
 ## Verification
 - MCP status check confirmed `/service1` returned HTTP 200.
+- `get_all_service_status` outputs also include service2/service3 failures that were pre-existing and out of scope for incident 97.
 
 ## MCP Tool Outputs
 
