@@ -99,7 +99,7 @@ Only after step 4 confirms the fix, create a PR documenting what happened.
 
 ## Incident Response Format
 
-When responding to incidents, use this structure:
+When responding to incidents AND when creating Pull Requests, use this structure:
 
 ```
 ## Skill Used

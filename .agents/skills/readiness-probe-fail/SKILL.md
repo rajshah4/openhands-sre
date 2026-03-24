@@ -24,7 +24,12 @@ The MCP tools `get_all_service_status`, `diagnose_service2`, and `fix_service2` 
 2. **Call `diagnose_service2`** — confirm ready flag missing. Paste the JSON.
 3. **Call `fix_service2`** — creates the readiness flag. Paste the JSON. Must show `"fixed": true`.
 4. **Call `get_all_service_status`** — confirm service2 HTTP 200. Paste the JSON.
-5. Create a PR with the incident report including the tool outputs above.
+5. Create a PR. The PR body MUST follow the **Incident Response Format** defined in `AGENTS.md`. Include:
+    - Skill Used
+    - Diagnosis (with tool outputs)
+    - Risk Assessment
+    - Remediation (with tool outputs)
+    - Verification (with tool outputs)
 
 ## Success Criteria
 - `fix_service2` returns `"fixed": true` and `"post_http_status": "200"`
