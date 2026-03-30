@@ -122,6 +122,38 @@ class TargetServiceIntegrationTests(unittest.TestCase):
         finally:
             self._stop_container(name)
 
+    def test_bad_env_config_returns_500_when_key_missing(self) -> None:
+        name = self._start_container("bad_env_config")
+        try:
+            status = self._container_http_status(name)
+            self.assertEqual(status, "500")
+        finally:
+            self._stop_container(name)
+
+    def test_bad_env_config_recovers_200_when_key_present(self) -> None:
+        name = f"openhands-gepa-it-bad-env-{uuid.uuid4().hex[:6]}"
+        self._run(
+            [
+                "docker",
+                "run",
+                "-d",
+                "--rm",
+                "--name",
+                name,
+                "-e",
+                "SCENARIO=bad_env_config",
+                "-e",
+                "REQUIRED_API_KEY=test-key",
+                IMAGE,
+            ]
+        )
+        self._wait_for_service(name)
+        try:
+            status = self._container_http_status(name)
+            self.assertEqual(status, "200")
+        finally:
+            self._stop_container(name)
+
 
 if __name__ == "__main__":
     unittest.main()
